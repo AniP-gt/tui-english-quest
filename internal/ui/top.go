@@ -23,6 +23,7 @@ type AppState int
 const (
 	StateTop AppState = iota
 	StateTown
+	StateBattle    // Added StateBattle
 	StateAnalysis  // AI Analysis screen
 	StateHistory   // History screen
 	StateEquipment // Equipment screen
@@ -41,6 +42,7 @@ type StatusToTownMsg struct{}
 type TownToStatusMsg struct{}
 type SettingsToTownMsg struct{}
 type TownToSettingsMsg struct{}
+type TownToBattleMsg struct{} // Added TownToBattleMsg
 
 // RootModel is the top-level model that manages different application states.
 type RootModel struct {
@@ -50,6 +52,7 @@ type RootModel struct {
 	note         string
 	state        AppState
 	town         TownModel
+	battle       BattleModel   // Added BattleModel
 	analysis     AnalysisModel // Embed AnalysisModel
 	history      HistoryModel
 	equipment    EquipmentModel
@@ -81,6 +84,7 @@ func NewRootModel() RootModel {
 		note:         "Press N to start a new game",
 		state:        StateTop,
 		town:         NewTownModel(stats, gc),     // Pass GeminiClient
+		battle:       NewBattleModel(stats, gc),   // Initialize BattleModel
 		analysis:     NewAnalysisModel(stats, gc), // Pass GeminiClient
 		history:      NewHistoryModel(stats),
 		equipment:    NewEquipmentModel(stats),
@@ -131,6 +135,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SettingsToTownMsg:
 		m.state = StateTown
 		return m, nil
+	case TownToBattleMsg: // Added TownToBattleMsg handling
+		m.state = StateBattle
+		m.battle = NewBattleModel(m.Status, m.geminiClient) // Initialize BattleModel
+		return m, m.battle.Init()
 	}
 
 	switch m.state {
@@ -140,6 +148,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newTownModel, cmd := m.town.Update(msg)
 		m.town = newTownModel.(TownModel)
 		m.Status = m.town.playerStats
+		return m, cmd
+	case StateBattle: // Added StateBattle update
+		newBattleModel, cmd := m.battle.Update(msg)
+		m.battle = newBattleModel.(BattleModel)
+		m.Status = m.battle.playerStats
 		return m, cmd
 	case StateAnalysis:
 		newAnalysisModel, cmd := m.analysis.Update(msg)
@@ -229,6 +242,8 @@ func (m RootModel) View() string {
 		return m.viewTop()
 	case StateTown:
 		return m.viewTown()
+	case StateBattle: // Added StateBattle view
+		return m.battle.View()
 	case StateAnalysis:
 		return m.viewAnalysis()
 	case StateHistory:
@@ -290,72 +305,72 @@ func (m RootModel) viewSettings() string {
 
 // runAllModes simulates running all modes sequentially using sample payloads and default answers.
 // This function is now only for testing purposes and will be removed later.
-func runAllModes() (game.Stats, []SessionSummary) {
+func runAllModes() (game.Stats, []game.SessionSummary) { // Changed return type to game.SessionSummary
 	ctx := context.Background()
 	stats := game.DefaultStats()
-	summaries := []SessionSummary{}
+	summaries := []game.SessionSummary{} // Changed to game.SessionSummary
 
 	if payload, err := services.FetchAndValidate(ctx, services.ModeVocab); err == nil {
 		_ = payload
-		ans := make([]VocabAnswer, 5)
+		ans := make([]game.VocabAnswer, 5) // Changed to game.VocabAnswer
 		for i := range ans {
-			ans[i] = VocabAnswer{Correct: true}
+			ans[i] = game.VocabAnswer{Correct: true} // Changed to game.VocabAnswer
 		}
-		var sum SessionSummary
-		stats, sum, _ = RunVocabSession(ctx, stats, ans)
+		var sum game.SessionSummary                           // Changed to game.SessionSummary
+		stats, sum, _ = game.RunVocabSession(ctx, stats, ans) // Changed to game.RunVocabSession
 		summaries = append(summaries, sum)
 	} else {
-		summaries = append(summaries, SessionSummary{Mode: services.ModeVocab, Note: err.Error()})
+		summaries = append(summaries, game.SessionSummary{Mode: services.ModeVocab, Note: err.Error()}) // Changed to game.SessionSummary
 	}
 
 	if payload, err := services.FetchAndValidate(ctx, services.ModeGrammar); err == nil {
 		_ = payload
-		ans := make([]GrammarAnswer, 5)
+		ans := make([]game.GrammarAnswer, 5) // Changed to game.GrammarAnswer
 		for i := range ans {
-			ans[i] = GrammarAnswer{Correct: true}
+			ans[i] = game.GrammarAnswer{Correct: true} // Changed to game.GrammarAnswer
 		}
-		var sum SessionSummary
-		stats, sum, _ = RunGrammarSession(ctx, stats, ans)
+		var sum game.SessionSummary                             // Changed to game.SessionSummary
+		stats, sum, _ = game.RunGrammarSession(ctx, stats, ans) // Changed to game.RunGrammarSession
 		summaries = append(summaries, sum)
 	} else {
-		summaries = append(summaries, SessionSummary{Mode: services.ModeGrammar, Note: err.Error()})
+		summaries = append(summaries, game.SessionSummary{Mode: services.ModeGrammar, Note: err.Error()}) // Changed to game.SessionSummary
 	}
 
 	if payload, err := services.FetchAndValidate(ctx, services.ModeTavern); err == nil {
 		_ = payload
-		outs := []TavernOutcome{OutcomeSuccess, OutcomeNormal, OutcomeSuccess, OutcomeFail, OutcomeNormal}
-		var sum SessionSummary
-		stats, sum, _ = RunTavernSession(ctx, stats, outs)
+		outs := []game.TavernOutcome{game.OutcomeSuccess, game.OutcomeNormal, game.OutcomeSuccess, game.OutcomeFail, game.OutcomeNormal} // Changed to game.TavernOutcome
+		var sum game.SessionSummary                                                                                                      // Changed to game.SessionSummary
+		stats, sum, _ = game.RunTavernSession(ctx, stats, outs)                                                                          // Changed to game.RunTavernSession
 		summaries = append(summaries, sum)
 	} else {
-		summaries = append(summaries, SessionSummary{Mode: services.ModeTavern, Note: err.Error()})
+		summaries = append(summaries, game.SessionSummary{Mode: services.ModeTavern, Note: err.Error()}) // Changed to game.SessionSummary
 	}
 
 	if payload, err := services.FetchAndValidate(ctx, services.ModeSpelling); err == nil {
 		_ = payload
-		outs := []SpellingOutcome{SpellingPerfect, SpellingNear, SpellingPerfect, SpellingFail, SpellingNear}
-		var sum SessionSummary
-		stats, sum, _ = RunSpellingSession(ctx, stats, outs)
+		outs := []game.SpellingOutcome{game.SpellingPerfect, game.SpellingNear, game.SpellingPerfect, game.SpellingFail, game.SpellingNear} // Changed to game.SpellingOutcome
+		var sum game.SessionSummary                                                                                                         // Changed to game.SessionSummary
+		stats, sum, _ = game.RunSpellingSession(ctx, stats, outs)                                                                           // Changed to game.RunSpellingSession
 		summaries = append(summaries, sum)
 	} else {
-		summaries = append(summaries, SessionSummary{Mode: services.ModeSpelling, Note: err.Error()})
+		summaries = append(summaries, game.SessionSummary{Mode: services.ModeSpelling, Note: err.Error()}) // Changed to game.SessionSummary
 	}
 
 	if payload, err := services.FetchAndValidate(ctx, services.ModeListening); err == nil {
 		_ = payload
-		ans := []ListeningAnswer{{true}, {true}, {false}, {true}, {true}}
-		var sum SessionSummary
-		stats, sum, _ = RunListeningSession(ctx, stats, ans)
+		ans := []game.ListeningAnswer{{true}, {true}, {false}, {true}, {true}} // Changed to game.ListeningAnswer
+		var sum game.SessionSummary                                            // Changed to game.SessionSummary
+		stats, sum, _ = game.RunListeningSession(ctx, stats, ans)              // Changed to game.RunListeningSession
 		summaries = append(summaries, sum)
 	} else {
-		summaries = append(summaries, SessionSummary{Mode: services.ModeListening, Note: err.Error()})
+		summaries = append(summaries, game.SessionSummary{Mode: services.ModeListening, Note: err.Error()}) // Changed to game.SessionSummary
 	}
 
 	return stats, summaries
 }
 
 // formatSummaries returns a compact note string.
-func formatSummaries(summaries []SessionSummary) string {
+func formatSummaries(summaries []game.SessionSummary) string { // Changed to game.SessionSummary
 	parts := make([]string, 0, len(summaries))
 	for _, s := range summaries {
 		if s.Note != "" {
