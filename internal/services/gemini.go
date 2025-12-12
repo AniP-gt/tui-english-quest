@@ -5,7 +5,36 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strings" // Added strings import
+
+	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/option"
 )
+
+// GeminiClient holds the Generative AI client
+type GeminiClient struct {
+	client *genai.GenerativeModel
+}
+
+// NewGeminiClient initializes and returns a new GeminiClient
+func NewGeminiClient(ctx context.Context) (*GeminiClient, error) {
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("GEMINI_API_KEY environment variable not set")
+	}
+
+	// Create a new client with the API key
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+	}
+
+	// Select the model (e.g., "gemini-pro")
+	model := client.GenerativeModel("gemini-pro")
+
+	return &GeminiClient{client: model}, nil
+}
 
 const (
 	ModeVocab     = "vocab"
@@ -21,23 +50,112 @@ type QuestionPayload struct {
 	Content []byte
 }
 
-// FetchQuestions fetches five questions for the given mode.
+// FetchQuestions fetches five questions for the given mode using the Gemini API.
 func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
-	_ = ctx
-	// TODO: Call Gemini API. For now, return sample payload.
-	// In a real implementation, this would involve HTTP requests and API key handling.
-	// Example:
-	// resp, err := http.Get(fmt.Sprintf("https://api.gemini.com/v1/questions?mode=%s", mode))
-	// if err != nil {
-	//     return QuestionPayload{}, fmt.Errorf("failed to fetch from Gemini API: %w", err)
-	// }
-	// defer resp.Body.Close()
-	// body, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	//     return QuestionPayload{}, fmt.Errorf("failed to read Gemini API response: %w", err)
-	// }
-	// return QuestionPayload{Mode: mode, Content: body}, nil
-	return QuestionPayload{Mode: mode, Content: samplePayload(mode)}, nil
+	gc, err := NewGeminiClient(ctx)
+	if err != nil {
+		return QuestionPayload{}, fmt.Errorf("failed to create Gemini client: %w", err)
+	}
+	// The genai.GenerativeModel does not have a Close() method, so we don't defer it here.
+
+	prompt := fmt.Sprintf("Generate 5 %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", mode, mode)
+
+	switch mode {
+	case ModeVocab:
+		prompt += `
+{
+  "questions": [
+    {
+      "enemy_name": "string",
+      "word": "string",
+      "options": ["string", "string", "string", "string"],
+      "answer_index": "integer (0-3)",
+      "explanation": "string"
+    }
+  ]
+}`
+	case ModeGrammar:
+		prompt += `
+{
+  "traps": [
+    {
+      "trap_name": "string",
+      "question": "string",
+      "options": ["string", "string", "string", "string"],
+      "answer_index": "integer (0-3)",
+      "explanation": "string"
+    }
+  ]
+}`
+	case ModeTavern:
+		prompt += `
+{
+  "npc_name": "string",
+  "npc_opening": "string",
+  "evaluation_rubric": ["string", "string", "string"],
+  "turns": [
+    {
+      "npc_reply": "string"
+    }
+  ]
+}`
+	case ModeSpelling:
+		prompt += `
+{
+  "prompts": [
+    {
+      "ja_hint": "string",
+      "correct_spelling": "string",
+      "explanation": "string"
+    }
+  ]
+}`
+	case ModeListening:
+		prompt += `
+{
+  "audio": [
+    {
+      "prompt": "string",
+      "options": ["string", "string", "string", "string"],
+      "answer_index": "integer (0-3)",
+      "transcript": "string"
+    }
+  ]
+}`
+	default:
+		return QuestionPayload{}, fmt.Errorf("unknown mode: %s", mode)
+	}
+
+	resp, err := gc.client.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return QuestionPayload{}, fmt.Errorf("failed to generate content from Gemini API: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return QuestionPayload{}, errors.New("no content found in Gemini API response")
+	}
+
+	var contentBytes []byte
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if text, ok := part.(genai.Text); ok {
+			contentBytes = append(contentBytes, []byte(text)...)
+		}
+	}
+
+	// The Gemini API might return markdown, so we need to extract the JSON block.
+	// This is a simple approach; a more robust solution might use a JSON parser that
+	// can handle surrounding text.
+	jsonString := string(contentBytes)
+	jsonStart := strings.Index(jsonString, "{")
+	jsonEnd := strings.LastIndex(jsonString, "}")
+
+	if jsonStart == -1 || jsonEnd == -1 || jsonEnd < jsonStart {
+		return QuestionPayload{}, fmt.Errorf("could not extract JSON from Gemini API response: %s", jsonString)
+	}
+
+	extractedJSON := []byte(jsonString[jsonStart : jsonEnd+1])
+
+	return QuestionPayload{Mode: mode, Content: extractedJSON}, nil
 }
 
 // FetchAndValidate obtains a payload then validates schema/count.
@@ -209,22 +327,4 @@ func validateOptions(opts []string, answer int) error {
 		return fmt.Errorf("answer_index out of range: %d", answer)
 	}
 	return nil
-}
-
-// samplePayload returns a minimal valid JSON payload per mode for offline runs.
-func samplePayload(mode string) []byte {
-	switch mode {
-	case ModeVocab:
-		return []byte(`{"questions":[{"enemy_name":"Slime","word":"maintain","options":["to keep","to break","to borrow","to throw"],"answer_index":0,"explanation":"to maintain means to keep something in good condition"},{"enemy_name":"Slime","word":"reduce","options":["to lower","to increase","to borrow","to throw"],"answer_index":0,"explanation":"reduce means make smaller"},{"enemy_name":"Slime","word":"create","options":["to make","to delete","to borrow","to throw"],"answer_index":0,"explanation":"create means make"},{"enemy_name":"Slime","word":"borrow","options":["to take and return","to throw","to buy","to sell"],"answer_index":0,"explanation":"borrow means take temporarily"},{"enemy_name":"Slime","word":"throw","options":["to toss","to keep","to borrow","to heal"],"answer_index":0,"explanation":"throw means toss"}]}`)
-	case ModeGrammar:
-		return []byte(`{"traps":[{"trap_name":"Past Tense Trap","question":"Which sentence is correct?","options":["I go yesterday.","I went yesterday.","I gone yesterday.","I going yesterday."],"answer_index":1,"explanation":"Past tense of go is went."},{"trap_name":"Do/Does","question":"Choose the correct sentence","options":["He don't like tea.","He doesn't like tea.","He not like tea.","He likes not tea."],"answer_index":1,"explanation":"Use doesn't + base verb."},{"trap_name":"Preposition","question":"Choose the correct preposition","options":["on Monday","in Monday","at Monday","by Monday"],"answer_index":0,"explanation":"Use on with days."},{"trap_name":"Article","question":"Choose the correct article","options":["I saw a moon","I saw an moon","I saw the moon","I saw moon"],"answer_index":2,"explanation":"Use the for the moon."},{"trap_name":"Verb Form","question":"Choose the correct form","options":["She go to work","She goes to work","She going to work","She gone to work"],"answer_index":1,"explanation":"Third person singular adds -es."}]}`)
-	case ModeTavern:
-		return []byte(`{"npc_name":"Old Jaro","npc_opening":"Hey traveler, what brings you here tonight?","evaluation_rubric":["Success: fluent, relevant, task completed","Normal: understandable, minor issues","Fail: unclear or off-topic"],"turns":[{"npc_reply":"The shop is down that road."},{"npc_reply":"The inn is upstairs."},{"npc_reply":"The tavern serves stew."},{"npc_reply":"The guard is outside."},{"npc_reply":"Travel safe, friend."}]}`)
-	case ModeSpelling:
-		return []byte(`{"prompts":[{"ja_hint":"維持する","correct_spelling":"maintain","explanation":"main + tain"},{"ja_hint":"減らす","correct_spelling":"reduce","explanation":"re + duce"},{"ja_hint":"作る","correct_spelling":"create","explanation":"create"},{"ja_hint":"借りる","correct_spelling":"borrow","explanation":"borrow"},{"ja_hint":"投げる","correct_spelling":"throw","explanation":"throw"}]}`)
-	case ModeListening:
-		return []byte(`{"audio":[{"prompt":"What does she want to buy?","options":["Shoes","Coffee","A book","Food"],"answer_index":1,"transcript":"I'm going to buy some coffee."},{"prompt":"Where is the shop?","options":["Down the road","In the sky","Underwater","On the roof"],"answer_index":0,"transcript":"The shop is down the road."},{"prompt":"What time is it?","options":["Morning","Noon","Evening","Night"],"answer_index":2,"transcript":"It's evening now."},{"prompt":"How many items?","options":["One","Two","Three","Four"],"answer_index":1,"transcript":"I will take two."},{"prompt":"What does he drink?","options":["Water","Juice","Tea","Soda"],"answer_index":2,"transcript":"He likes tea."}]}`)
-	default:
-		return []byte("[]")
-	}
 }

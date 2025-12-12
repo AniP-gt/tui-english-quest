@@ -14,8 +14,8 @@ type WeaknessReport struct {
 	Recommendation string
 }
 
-// AnalyzeWeakness analyzes player history and generates a weakness report.
-func AnalyzeWeakness(ctx context.Context, playerID string, historyLimit int) WeaknessReport {
+// AnalyzeWeakness analyzes player history and generates a weakness report using the Gemini API.
+func AnalyzeWeakness(ctx context.Context, gc *GeminiClient, playerID string, historyLimit int) (WeaknessReport, error) {
 	// For now, use a simple analysis based on mode and correct count.
 	// In a real implementation, this would involve more sophisticated logic
 	// to identify specific words/grammar points.
@@ -25,14 +25,14 @@ func AnalyzeWeakness(ctx context.Context, playerID string, historyLimit int) Wea
 		return WeaknessReport{
 			WeakPoints:     []string{"analysis error"},
 			Recommendation: fmt.Sprintf("Failed to analyze history: %v", err),
-		}
+		}, err
 	}
 
 	if len(sessions) == 0 {
 		return WeaknessReport{
 			WeakPoints:     []string{"no data"},
 			Recommendation: "Play some sessions to get an AI analysis!",
-		}
+		}, nil
 	}
 
 	modeScores := make(map[string]struct {
@@ -90,5 +90,5 @@ func AnalyzeWeakness(ctx context.Context, playerID string, historyLimit int) Wea
 		WeakPoints:     weakPoints,
 		StrengthPoints: strengthPoints,
 		Recommendation: recommendation,
-	}
+	}, nil
 }
