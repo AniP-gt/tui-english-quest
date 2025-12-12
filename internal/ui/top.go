@@ -35,7 +35,7 @@ type AnalysisToTownMsg struct{}
 type TownToAnalysisMsg struct{}
 type HistoryToTownMsg struct{}
 type TownToHistoryMsg struct{}
-type EquipmentToTownMsg struct{} // Fixed syntax error
+type EquipmentToTownMsg struct{}
 type TownToEquipmentMsg struct{}
 type StatusToTownMsg struct{}
 type TownToStatusMsg struct{}
@@ -44,32 +44,22 @@ type TownToSettingsMsg struct{}
 
 // RootModel is the top-level model that manages different application states.
 type RootModel struct {
-	Status       game.Stats
-	menu         []string
-	cursor       int
-	note         string
-	state        AppState
-	town         TownModel
-	analysis     AnalysisModel // Embed AnalysisModel
-	history      HistoryModel
-	equipment    EquipmentModel
-	status       StatusModel
-	settings     SettingsModel
-	geminiClient *services.GeminiClient // Add GeminiClient
+	Status    game.Stats
+	menu      []string
+	cursor    int
+	note      string
+	state     AppState
+	town      TownModel
+	analysis  AnalysisModel // Embed AnalysisModel
+	history   HistoryModel
+	equipment EquipmentModel
+	status    StatusModel
+	settings  SettingsModel
 }
 
 // NewRootModel creates the top-level model.
 func NewRootModel() RootModel {
 	stats := game.DefaultStats()
-
-	// Initialize Gemini Client
-	gc, err := services.NewGeminiClient(context.Background())
-	if err != nil {
-		// Handle error, e.g., log it and proceed without Gemini features or exit
-		fmt.Printf("Failed to initialize Gemini Client: %v\n", err)
-		// For now, we'll proceed with a nil client, but a real app might exit or disable features.
-	}
-
 	return RootModel{
 		Status: stats,
 		menu: []string{
@@ -77,16 +67,15 @@ func NewRootModel() RootModel {
 			"New Game",
 			"Quit",
 		},
-		cursor:       0,
-		note:         "Press N to start a new game",
-		state:        StateTop,
-		town:         NewTownModel(stats, gc),     // Pass GeminiClient
-		analysis:     NewAnalysisModel(stats, gc), // Pass GeminiClient
-		history:      NewHistoryModel(stats),
-		equipment:    NewEquipmentModel(stats),
-		status:       NewStatusModel(stats),
-		settings:     NewSettingsModel(stats),
-		geminiClient: gc,
+		cursor:    0,
+		note:      "Press N to start a new game",
+		state:     StateTop,
+		town:      NewTownModel(stats),
+		analysis:  NewAnalysisModel(stats), // Initialize AnalysisModel
+		history:   NewHistoryModel(stats),
+		equipment: NewEquipmentModel(stats),
+		status:    NewStatusModel(stats),
+		settings:  NewSettingsModel(stats),
 	}
 }
 
@@ -100,8 +89,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case AnalysisToTownMsg: // Handle message from AnalysisModel to return to Town
 		m.state = StateTown
-		m.Status = m.analysis.playerStats               // Update RootModel's stats from AnalysisModel
-		m.town = NewTownModel(m.Status, m.geminiClient) // Refresh TownModel with updated stats
+		m.Status = m.analysis.playerStats // Update RootModel's stats from AnalysisModel
+		m.town = NewTownModel(m.Status)   // Refresh TownModel with updated stats
 		return m, nil
 	case TownToHistoryMsg:
 		m.state = StateHistory
@@ -196,7 +185,7 @@ func (m RootModel) updateTop(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "n":
 			m.Status = game.DefaultStats()
 			m.note = "New Game started with defaults"
-			m.town = NewTownModel(m.Status, m.geminiClient)
+			m.town = NewTownModel(m.Status)
 			m.state = StateTown
 		}
 	}
@@ -208,12 +197,12 @@ func (m RootModel) handleTopEnter() (tea.Model, tea.Cmd) {
 	switch choice {
 	case "Start Adventure":
 		m.state = StateTown
-		m.town = NewTownModel(m.Status, m.geminiClient)
+		m.town = NewTownModel(m.Status)
 		return m, nil
 	case "New Game":
 		m.Status = game.DefaultStats()
 		m.note = "New Game started with defaults"
-		m.town = NewTownModel(m.Status, m.geminiClient)
+		m.town = NewTownModel(m.Status)
 		m.state = StateTown
 		return m, nil
 	case "Quit":

@@ -20,14 +20,10 @@ var (
 
 // SettingsModel displays and manages application settings.
 type SettingsModel struct {
-	playerStats     game.Stats
-	apiKeyInput     textinput.Model
-	cursor          int
-	menu            []string
-	originalAPIKey  string   // Store the API key when entering settings
-	showConfirmExit bool     // Whether to show the exit confirmation
-	confirmCursor   int      // Cursor for the exit confirmation menu
-	confirmMenu     []string // Menu for exit confirmation
+	playerStats game.Stats
+	apiKeyInput textinput.Model
+	cursor      int
+	menu        []string
 }
 
 // NewSettingsModel creates a new SettingsModel.
@@ -37,19 +33,11 @@ func NewSettingsModel(stats game.Stats) SettingsModel {
 	ti.CharLimit = 100
 	ti.Width = 50
 
-	// Load current API key from environment for comparison
-	currentAPIKey := os.Getenv("GEMINI_API_KEY")
-	ti.SetValue(currentAPIKey) // Set initial value of text input
-
 	return SettingsModel{
-		playerStats:     stats,
-		apiKeyInput:     ti,
-		cursor:          0,
-		menu:            []string{"Set Gemini API Key", "Save and Exit"},
-		originalAPIKey:  currentAPIKey,
-		showConfirmExit: false,
-		confirmCursor:   0,
-		confirmMenu:     []string{"Save Changes", "Discard Changes", "Cancel"},
+		playerStats: stats,
+		apiKeyInput: ti,
+		cursor:      0,
+		menu:        []string{"Set Gemini API Key", "Save and Exit"},
 	}
 }
 
@@ -60,60 +48,10 @@ func (m SettingsModel) Init() tea.Cmd {
 func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	// Handle confirmation dialog if active
-	if m.showConfirmExit {
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch msg.String() {
-			case "up", "k":
-				if m.confirmCursor > 0 {
-					m.confirmCursor--
-				}
-			case "down", "j":
-				if m.confirmCursor < len(m.confirmMenu)-1 {
-					m.confirmCursor++
-				}
-			case "enter":
-				switch m.confirmMenu[m.confirmCursor] {
-				case "Save Changes":
-					// Save logic
-					apiKey := m.apiKeyInput.Value()
-					if apiKey != "" {
-						envContent := fmt.Sprintf("DB_PATH=./db.sqlite\nGEMINI_API_KEY=%s\n", apiKey)
-						if err := os.WriteFile(".env", []byte(envContent), 0644); err != nil {
-							// TODO: Handle error, show message to user
-						}
-					}
-					return m, func() tea.Msg { return SettingsToTownMsg{} }
-				case "Discard Changes":
-					return m, func() tea.Msg { return SettingsToTownMsg{} }
-				case "Cancel":
-					m.showConfirmExit = false
-					m.confirmCursor = 0 // Reset cursor
-					return m, nil
-				}
-			}
-		}
-		return m, nil // Consume input while confirmation is active
-	}
-
-	// Handle main settings menu
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
-			// If API key changed, show confirmation
-			if m.apiKeyInput.Value() != m.originalAPIKey {
-				m.showConfirmExit = true
-				return m, nil
-			}
-			return m, func() tea.Msg { return SettingsToTownMsg{} }
-		case "esc":
-			// If API key changed, show confirmation
-			if m.apiKeyInput.Value() != m.originalAPIKey {
-				m.showConfirmExit = true
-				return m, nil
-			}
+		case "ctrl+c", "esc":
 			return m, func() tea.Msg { return SettingsToTownMsg{} }
 		case "up", "k":
 			if m.cursor > 0 {
@@ -159,25 +97,6 @@ func (m SettingsModel) View() string {
 	var b strings.Builder
 	b.WriteString(settingsTitleStyle.Render("Settings\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
-
-	if m.showConfirmExit {
-		b.WriteString("\nAPI key has changed. Do you want to save?\n\n")
-		for i, item := range m.confirmMenu {
-			cursor := "  "
-			if i == m.confirmCursor {
-				cursor = "> "
-			}
-			b.WriteString(fmt.Sprintf("%s%s\n", cursor, item))
-		}
-		footer := "\n[j/k] Navigate  [Enter] Select"
-		return lipgloss.JoinVertical(lipgloss.Left,
-			header,
-			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
-			settingsStyle.Render(b.String()),
-			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""),
-			footer,
-		)
-	}
 
 	b.WriteString("Configure application settings:\n\n")
 

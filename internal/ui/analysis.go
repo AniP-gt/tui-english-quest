@@ -21,25 +21,17 @@ var (
 
 // AnalysisModel displays the AI weakness analysis.
 type AnalysisModel struct {
-	playerStats  game.Stats
-	report       services.WeaknessReport
-	geminiClient *services.GeminiClient // Add GeminiClient
+	playerStats game.Stats
+	report      services.WeaknessReport
 }
 
 // NewAnalysisModel creates a new AnalysisModel.
-func NewAnalysisModel(stats game.Stats, gc *services.GeminiClient) AnalysisModel {
+func NewAnalysisModel(stats game.Stats) AnalysisModel {
 	// In a real implementation, playerID would be passed and history fetched.
-	report, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, 200)
-	if err != nil {
-		// Handle error, e.g., log it and return an empty report or a report with an error message
-		report = services.WeaknessReport{
-			Recommendation: fmt.Sprintf("Error analyzing weakness: %v", err),
-		}
-	}
+	report := services.AnalyzeWeakness(context.Background(), stats.Name, 200)
 	return AnalysisModel{
-		playerStats:  stats,
-		report:       report,
-		geminiClient: gc,
+		playerStats: stats,
+		report:      report,
 	}
 }
 

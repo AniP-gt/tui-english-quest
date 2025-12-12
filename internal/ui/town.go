@@ -43,16 +43,11 @@ type TownModel struct {
 }
 
 // NewTownModel creates a new TownModel.
-func NewTownModel(stats game.Stats, gc *services.GeminiClient) TownModel {
+func NewTownModel(stats game.Stats) TownModel {
 	// TODO: Fetch actual AI advice based on player history
 	// For now, use a placeholder report.
 	// In a real implementation, playerID would be passed and history fetched.
-	aiReport, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, 200) // Use player name as ID, limit 200
-	if err != nil {
-		aiReport = services.WeaknessReport{
-			Recommendation: fmt.Sprintf("Error getting AI advice: %v", err),
-		}
-	}
+	aiReport := services.AnalyzeWeakness(context.Background(), stats.Name, 200) // Use player name as ID, limit 200
 	return TownModel{
 		playerStats: stats,
 		menu:        townMenu,
