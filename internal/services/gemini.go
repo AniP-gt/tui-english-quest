@@ -31,7 +31,7 @@ func NewGeminiClient(ctx context.Context) (*GeminiClient, error) {
 	}
 
 	// Select the model (e.g., "gemini-pro")
-	model := client.GenerativeModel("gemini-pro")
+	model := client.GenerativeModel("gemini-2.5-flash")
 
 	return &GeminiClient{client: model}, nil
 }
@@ -58,7 +58,7 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 	}
 	// The genai.GenerativeModel does not have a Close() method, so we don't defer it here.
 
-	prompt := fmt.Sprintf("Generate 5 %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", mode, mode)
+	prompt := fmt.Sprintf("Generate 5 *new and diverse* %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", mode, mode)
 
 	switch mode {
 	case ModeVocab:
@@ -190,7 +190,7 @@ func ValidatePayload(payload QuestionPayload) error {
 
 // --- mode validators ---
 
-type vocabQuestion struct {
+type VocabQuestion struct {
 	EnemyName   string   `json:"enemy_name"`
 	Word        string   `json:"word"`
 	Options     []string `json:"options"`
@@ -198,12 +198,12 @@ type vocabQuestion struct {
 	Explanation string   `json:"explanation"`
 }
 
-type vocabEnvelope struct {
-	Questions []vocabQuestion `json:"questions"`
+type VocabEnvelope struct {
+	Questions []VocabQuestion `json:"questions"`
 }
 
 func validateVocab(raw []byte) error {
-	var env vocabEnvelope
+	var env VocabEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid vocab JSON: %w", err)
 	}
@@ -218,7 +218,7 @@ func validateVocab(raw []byte) error {
 	return nil
 }
 
-type grammarTrap struct {
+type GrammarTrap struct {
 	TrapName    string   `json:"trap_name"`
 	Question    string   `json:"question"`
 	Options     []string `json:"options"`
@@ -226,12 +226,12 @@ type grammarTrap struct {
 	Explanation string   `json:"explanation"`
 }
 
-type grammarEnvelope struct {
-	Traps []grammarTrap `json:"traps"`
+type GrammarEnvelope struct {
+	Traps []GrammarTrap `json:"traps"`
 }
 
 func validateGrammar(raw []byte) error {
-	var env grammarEnvelope
+	var env GrammarEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid grammar JSON: %w", err)
 	}
@@ -246,19 +246,19 @@ func validateGrammar(raw []byte) error {
 	return nil
 }
 
-type tavernTurn struct {
+type TavernTurn struct {
 	NPCReply string `json:"npc_reply"`
 }
 
-type tavernEnvelope struct {
+type TavernEnvelope struct {
 	NPCName          string       `json:"npc_name"`
 	NPCOpening       string       `json:"npc_opening"`
 	EvaluationRubric []string     `json:"evaluation_rubric"`
-	Turns            []tavernTurn `json:"turns"`
+	Turns            []TavernTurn `json:"turns"`
 }
 
 func validateTavern(raw []byte) error {
-	var env tavernEnvelope
+	var env TavernEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid tavern JSON: %w", err)
 	}
@@ -271,18 +271,18 @@ func validateTavern(raw []byte) error {
 	return nil
 }
 
-type spellingPrompt struct {
+type SpellingPrompt struct {
 	JAHint          string `json:"ja_hint"`
 	CorrectSpelling string `json:"correct_spelling"`
 	Explanation     string `json:"explanation"`
 }
 
-type spellingEnvelope struct {
-	Prompts []spellingPrompt `json:"prompts"`
+type SpellingEnvelope struct {
+	Prompts []SpellingPrompt `json:"prompts"`
 }
 
 func validateSpelling(raw []byte) error {
-	var env spellingEnvelope
+	var env SpellingEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid spelling JSON: %w", err)
 	}
@@ -292,19 +292,19 @@ func validateSpelling(raw []byte) error {
 	return nil
 }
 
-type listeningItem struct {
+type ListeningItem struct {
 	Prompt      string   `json:"prompt"`
 	Options     []string `json:"options"`
 	AnswerIndex int      `json:"answer_index"`
 	Transcript  string   `json:"transcript"`
 }
 
-type listeningEnvelope struct {
-	Audio []listeningItem `json:"audio"`
+type ListeningEnvelope struct {
+	Audio []ListeningItem `json:"audio"`
 }
 
 func validateListening(raw []byte) error {
-	var env listeningEnvelope
+	var env ListeningEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid listening JSON: %w", err)
 	}
