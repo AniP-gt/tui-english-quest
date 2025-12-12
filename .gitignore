@@ -1,0 +1,27 @@
+# Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Build and dependency dirs
+bin/
+vendor/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.idea/
+.vscode/
+
+# Env / secrets
+.env
+.env.*
+
+# Project generated
+coverage/
