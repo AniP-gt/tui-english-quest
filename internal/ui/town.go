@@ -84,6 +84,8 @@ func (m TownModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			switch m.menu[m.cursor] {
+			case "⚔  Vocabulary Battle": // Handle Vocabulary Battle selection
+				return m, func() tea.Msg { return TownToBattleMsg{} }
 			case "🎒 Equipment":
 				return m, func() tea.Msg { return TownToEquipmentMsg{} }
 			case "🧠 AI Analysis":
