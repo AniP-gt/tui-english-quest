@@ -24,6 +24,7 @@ const (
 	StateTop AppState = iota
 	StateTown
 	StateBattle    // Added StateBattle
+	StateDungeon   // Added StateDungeon
 	StateAnalysis  // AI Analysis screen
 	StateHistory   // History screen
 	StateEquipment // Equipment screen
@@ -42,7 +43,6 @@ type StatusToTownMsg struct{}
 type TownToStatusMsg struct{}
 type SettingsToTownMsg struct{}
 type TownToSettingsMsg struct{}
-type TownToBattleMsg struct{} // Added TownToBattleMsg
 
 // RootModel is the top-level model that manages different application states.
 type RootModel struct {
@@ -53,6 +53,7 @@ type RootModel struct {
 	state        AppState
 	town         TownModel
 	battle       BattleModel   // Added BattleModel
+	dungeon      DungeonModel  // Added DungeonModel
 	analysis     AnalysisModel // Embed AnalysisModel
 	history      HistoryModel
 	equipment    EquipmentModel
@@ -85,6 +86,7 @@ func NewRootModel() RootModel {
 		state:        StateTop,
 		town:         NewTownModel(stats, gc),     // Pass GeminiClient
 		battle:       NewBattleModel(stats, gc),   // Initialize BattleModel
+		dungeon:      NewDungeonModel(stats, gc),  // Initialize DungeonModel
 		analysis:     NewAnalysisModel(stats, gc), // Pass GeminiClient
 		history:      NewHistoryModel(stats),
 		equipment:    NewEquipmentModel(stats),
@@ -139,6 +141,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = StateBattle
 		m.battle = NewBattleModel(m.Status, m.geminiClient) // Initialize BattleModel
 		return m, m.battle.Init()
+	case TownToDungeonMsg: // Added TownToDungeonMsg handling
+		m.state = StateDungeon
+		m.dungeon = NewDungeonModel(m.Status, m.geminiClient) // Initialize DungeonModel
+		return m, m.dungeon.Init()
 	}
 
 	switch m.state {
@@ -153,6 +159,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newBattleModel, cmd := m.battle.Update(msg)
 		m.battle = newBattleModel.(BattleModel)
 		m.Status = m.battle.playerStats
+		return m, cmd
+	case StateDungeon: // Added StateDungeon update
+		newDungeonModel, cmd := m.dungeon.Update(msg)
+		m.dungeon = newDungeonModel.(DungeonModel)
+		m.Status = m.dungeon.playerStats
 		return m, cmd
 	case StateAnalysis:
 		newAnalysisModel, cmd := m.analysis.Update(msg)
@@ -244,6 +255,8 @@ func (m RootModel) View() string {
 		return m.viewTown()
 	case StateBattle: // Added StateBattle view
 		return m.battle.View()
+	case StateDungeon: // Added StateDungeon view
+		return m.dungeon.View()
 	case StateAnalysis:
 		return m.viewAnalysis()
 	case StateHistory:
