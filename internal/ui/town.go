@@ -64,6 +64,10 @@ func NewTownModel(stats game.Stats, gc *services.GeminiClient) TownModel {
 // TownToRootMsg signals to the RootModel to return to the top screen.
 type TownToRootMsg struct{}
 
+// TownToBattleMsg signals to the RootModel to transition to the battle screen.
+
+// TownToDungeonMsg signals to the RootModel to transition to the dungeon screen.
+
 func (m TownModel) Init() tea.Cmd {
 	return nil
 }
@@ -86,6 +90,8 @@ func (m TownModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.menu[m.cursor] {
 			case "⚔  Vocabulary Battle": // Handle Vocabulary Battle selection
 				return m, func() tea.Msg { return TownToBattleMsg{} }
+			case "🏰 Grammar Dungeon": // Handle Grammar Dungeon selection
+				return m, func() tea.Msg { return TownToDungeonMsg{} }
 			case "🎒 Equipment":
 				return m, func() tea.Msg { return TownToEquipmentMsg{} }
 			case "🧠 AI Analysis":
