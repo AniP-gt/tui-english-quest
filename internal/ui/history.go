@@ -67,10 +67,7 @@ func (m HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m HistoryModel) View() string {
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	header := components.Header(s, true, 0)
 
 	var b strings.Builder
 	b.WriteString(historyTitleStyle.Render("Session History\n"))
@@ -106,7 +103,7 @@ func (m HistoryModel) View() string {
 		}
 	}
 
-	footer := "\n[j/k] Navigate  [Enter/Esc] Back to Town"
+	footer := components.Footer("[j/k] Navigate  [Enter/Esc] Back to Town", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
