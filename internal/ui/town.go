@@ -112,43 +112,23 @@ func (m TownModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m TownModel) View() string {
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	// Use shared header
+	header := components.Header(s, true, 0)
 
+	// Render menu using shared Menu component
 	menuBody := "Where do you want to go?\n\n"
-	var leftColumn, rightColumn []string
-	for i, item := range m.menu {
-		var styledItem string
-		if i == m.cursor {
-			styledItem = menuSelectedStyle.Render(item)
-		} else {
-			styledItem = menuItemStyle.Render(item)
-		}
-		if i < 5 {
-			leftColumn = append(leftColumn, styledItem)
-		} else {
-			rightColumn = append(rightColumn, styledItem)
-		}
-	}
-	menuGrid := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.JoinVertical(lipgloss.Left, leftColumn...),
-		lipgloss.NewStyle().PaddingLeft(2).Render(""), // Spacer
-		lipgloss.JoinVertical(lipgloss.Left, rightColumn...),
-	)
-	menuBody += menuGrid
+	menuBody += components.Menu(m.menu, m.cursor, 2, 0)
 
 	advice := fmt.Sprintf("\nTip / AI Advice\n  Weak points: %s\n  Recommendation: %s",
 		strings.Join(m.aiAdvice.WeakPoints, ", "), m.aiAdvice.Recommendation)
 
-	footer := "[j/k] Move  [Enter] Select  [q] Quit" // T032: Common keybindings
+	footer := components.Footer("[j/k] Move  [Enter] Select  [q] Quit", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""), // Separator
 		townMenuStyle.Render(menuBody),
-		townAdviceStyle.Render(advice),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true).Render(advice),
 		lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""), // Separator
 		footer,
 	)
