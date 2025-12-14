@@ -89,10 +89,7 @@ func (m EquipmentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m EquipmentModel) View() string {
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	header := components.Header(s, true, 0)
 
 	var b strings.Builder
 	b.WriteString(equipmentTitleStyle.Render("Equipment\n"))
@@ -111,7 +108,7 @@ func (m EquipmentModel) View() string {
 		b.WriteString(line)
 	}
 
-	footer := "\n[j/k] Navigate  [Enter] Change  [Esc] Back to Town"
+	footer := components.Footer("[j/k] Navigate  [Enter] Change  [Esc] Back to Town", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
