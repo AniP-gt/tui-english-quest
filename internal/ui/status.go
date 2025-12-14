@@ -45,10 +45,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m StatusModel) View() string {
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	header := components.Header(s, true, 0)
 
 	var b strings.Builder
 	b.WriteString(statusTitleStyle.Render("Player Status\n"))
@@ -70,7 +67,7 @@ func (m StatusModel) View() string {
 	b.WriteString(statusItemStyle.Render("- First Victory\n"))
 	b.WriteString(statusItemStyle.Render("- Combo Master\n"))
 
-	footer := "\n[Enter/Esc] Back to Town"
+	footer := components.Footer("[Enter/Esc] Back to Town", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
