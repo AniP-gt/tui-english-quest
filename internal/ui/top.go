@@ -25,6 +25,9 @@ const (
 	StateTown
 	StateBattle    // Added StateBattle
 	StateDungeon   // Added StateDungeon
+	StateTavern    // Added StateTavern
+	StateSpelling  // Spelling mock screen
+	StateListening // Listening mock screen
 	StateAnalysis  // AI Analysis screen
 	StateHistory   // History screen
 	StateEquipment // Equipment screen
@@ -44,6 +47,15 @@ type TownToStatusMsg struct{}
 type SettingsToTownMsg struct{}
 type TownToSettingsMsg struct{}
 
+type TownToTavernMsg struct{}
+type TavernToTownMsg struct{}
+
+type TownToSpellingMsg struct{}
+type SpellingToTownMsg struct{}
+
+type TownToListeningMsg struct{}
+type ListeningToTownMsg struct{}
+
 // RootModel is the top-level model that manages different application states.
 type RootModel struct {
 	Status       game.Stats
@@ -52,9 +64,12 @@ type RootModel struct {
 	note         string
 	state        AppState
 	town         TownModel
-	battle       BattleModel   // Added BattleModel
-	dungeon      DungeonModel  // Added DungeonModel
-	analysis     AnalysisModel // Embed AnalysisModel
+	battle       BattleModel    // Added BattleModel
+	dungeon      DungeonModel   // Added DungeonModel
+	tavern       TavernModel    // Added TavernModel
+	spelling     SpellingModel  // SpellingModel (mock)
+	listening    ListeningModel // ListeningModel (mock)
+	analysis     AnalysisModel  // Embed AnalysisModel
 	history      HistoryModel
 	equipment    EquipmentModel
 	status       StatusModel
@@ -84,9 +99,12 @@ func NewRootModel() RootModel {
 		cursor:       0,
 		note:         "Press N to start a new game",
 		state:        StateTop,
-		town:         NewTownModel(stats, gc),     // Pass GeminiClient
-		battle:       NewBattleModel(stats, gc),   // Initialize BattleModel
-		dungeon:      NewDungeonModel(stats, gc),  // Initialize DungeonModel
+		town:         NewTownModel(stats, gc),    // Pass GeminiClient
+		battle:       NewBattleModel(stats, gc),  // Initialize BattleModel
+		dungeon:      NewDungeonModel(stats, gc), // Initialize DungeonModel
+		tavern:       NewTavernModel(stats, gc, "both"),
+		spelling:     NewSpellingModel(stats, gc),
+		listening:    NewListeningModel(stats, gc),
 		analysis:     NewAnalysisModel(stats, gc), // Pass GeminiClient
 		history:      NewHistoryModel(stats),
 		equipment:    NewEquipmentModel(stats),
@@ -145,6 +163,18 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = StateDungeon
 		m.dungeon = NewDungeonModel(m.Status, m.geminiClient) // Initialize DungeonModel
 		return m, m.dungeon.Init()
+	case TownToTavernMsg:
+		m.state = StateTavern
+		m.tavern = NewTavernModel(m.Status, m.geminiClient, "both")
+		return m, m.tavern.Init()
+	case TownToSpellingMsg:
+		m.state = StateSpelling
+		m.spelling = NewSpellingModel(m.Status, m.geminiClient)
+		return m, m.spelling.Init()
+	case TownToListeningMsg:
+		m.state = StateListening
+		m.listening = NewListeningModel(m.Status, m.geminiClient)
+		return m, m.listening.Init()
 	}
 
 	switch m.state {
@@ -164,6 +194,21 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newDungeonModel, cmd := m.dungeon.Update(msg)
 		m.dungeon = newDungeonModel.(DungeonModel)
 		m.Status = m.dungeon.playerStats
+		return m, cmd
+	case StateTavern:
+		newTavernModel, cmd := m.tavern.Update(msg)
+		m.tavern = newTavernModel.(TavernModel)
+		m.Status = m.tavern.playerStats
+		return m, cmd
+	case StateSpelling:
+		newSpellingModel, cmd := m.spelling.Update(msg)
+		m.spelling = newSpellingModel.(SpellingModel)
+		m.Status = m.spelling.playerStats
+		return m, cmd
+	case StateListening:
+		newListeningModel, cmd := m.listening.Update(msg)
+		m.listening = newListeningModel.(ListeningModel)
+		m.Status = m.listening.playerStats
 		return m, cmd
 	case StateAnalysis:
 		newAnalysisModel, cmd := m.analysis.Update(msg)
@@ -257,6 +302,12 @@ func (m RootModel) View() string {
 		return m.battle.View()
 	case StateDungeon: // Added StateDungeon view
 		return m.dungeon.View()
+	case StateTavern:
+		return m.tavern.View()
+	case StateSpelling:
+		return m.spelling.View()
+	case StateListening:
+		return m.listening.View()
 	case StateAnalysis:
 		return m.viewAnalysis()
 	case StateHistory:
