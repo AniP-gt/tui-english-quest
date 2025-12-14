@@ -14,7 +14,7 @@ import (
 
 var (
 	settingsStyle      = lipgloss.NewStyle().Padding(1, 2)
-	settingsTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	settingsTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
 	settingsItemStyle  = lipgloss.NewStyle().PaddingLeft(2)
 )
 
@@ -151,10 +151,7 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SettingsModel) View() string {
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	header := components.Header(s, true, 0)
 
 	var b strings.Builder
 	b.WriteString(settingsTitleStyle.Render("Settings\n"))
@@ -169,7 +166,7 @@ func (m SettingsModel) View() string {
 			}
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, item))
 		}
-		footer := "\n[j/k] Navigate  [Enter] Select"
+		footer := components.Footer("[j/k] Navigate  [Enter] Select", 0)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			header,
 			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
@@ -192,7 +189,7 @@ func (m SettingsModel) View() string {
 		}
 	}
 
-	footer := "\n[j/k] Navigate  [Enter] Select  [Esc] Back to Town"
+	footer := components.Footer("[j/k] Navigate  [Enter] Select  [Esc] Back to Town", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

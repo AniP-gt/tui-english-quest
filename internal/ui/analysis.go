@@ -14,8 +14,8 @@ import (
 
 var (
 	analysisStyle        = lipgloss.NewStyle().Padding(1, 2)
-	analysisTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
-	analysisSectionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	analysisTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
+	analysisSectionStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorMuted)
 	analysisItemStyle    = lipgloss.NewStyle().PaddingLeft(2)
 )
 
@@ -60,10 +60,7 @@ func (m AnalysisModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m AnalysisModel) View() string {
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	header := components.Header(s, true, 0)
 
 	var b strings.Builder
 	b.WriteString(analysisTitleStyle.Render("AI Analysis\n"))
@@ -92,7 +89,7 @@ func (m AnalysisModel) View() string {
 	b.WriteString(analysisSectionStyle.Render("\nRecommendations:\n"))
 	b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", m.report.Recommendation)))
 
-	footer := "\n[Enter] OK  [Esc] Back to Town"
+	footer := components.Footer("[Enter] OK  [Esc] Back to Town", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

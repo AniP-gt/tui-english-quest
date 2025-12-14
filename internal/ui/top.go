@@ -14,7 +14,7 @@ import (
 
 var (
 	menuStyle = lipgloss.NewStyle()
-	noteStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	noteStyle = lipgloss.NewStyle().Foreground(components.ColorMuted)
 )
 
 // AppState represents the current screen/state of the application.
@@ -273,10 +273,8 @@ func (m RootModel) View() string {
 }
 
 func (m RootModel) viewTop() string {
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(m.Status))).Render("TUI English Quest"),
-		components.View(m.Status),
-	)
+	// Use shared header and footer components
+	header := components.Header(m.Status, true, 0)
 	body := ""
 	for i, item := range m.menu {
 		cursor := "  "
@@ -285,11 +283,37 @@ func (m RootModel) viewTop() string {
 		}
 		body += fmt.Sprintf("%s%s\n", cursor, item)
 	}
-	footer := "[j/k] Move  [Enter] Select  [n] New Game  [q] Quit"
-	if m.note != "" {
-		footer += "\n" + noteStyle.Render(m.note)
+	// Render menu inside a centered box for the Top screen (no blue tone)
+	boxWidth := lipgloss.Width(header)
+	if boxWidth < 50 {
+		boxWidth = 50
 	}
-	return fmt.Sprintf("%s\n%s\n\n%s\n", header, menuStyle.Render(body), footer)
+	innerWidth := boxWidth - 4 // account for box padding/border
+
+	// Large centered title (use Accent color, not blue)
+	title := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Foreground(components.ColorAccent).Bold(true).Render("TUI English Quest")
+
+	// Build centered menu items, highlight selected
+	var menuLines []string
+	for i, item := range m.menu {
+		if i == m.cursor {
+			sel := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Background(components.ColorAccent).Foreground(components.ColorBoxDark).Bold(true).Render(item)
+			menuLines = append(menuLines, sel)
+		} else {
+			line := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Foreground(components.ColorMuted).Render(item)
+			menuLines = append(menuLines, line)
+		}
+	}
+
+	content := title + "\n\n" + lipgloss.JoinVertical(lipgloss.Center, menuLines...)
+	// Use a dark box (no info/cyan background)
+	menuBox := components.Box("", content, "", boxWidth)
+
+	footer := components.Footer("[j/k] Move  [Enter] Select  [n] New Game  [q] Quit", 0)
+	if m.note != "" {
+		footer = footer + "\n" + noteStyle.Render(m.note)
+	}
+	return fmt.Sprintf("%s\n%s\n\n%s\n", header, menuBox, footer)
 }
 
 func (m RootModel) viewTown() string {
