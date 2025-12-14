@@ -94,11 +94,14 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
   "npc_opening": "string",
   "evaluation_rubric": ["string", "string", "string"],
   "turns": [
-    {
-      "npc_reply": "string"
-    }
+    {"npc_reply": "string"},
+    {"npc_reply": "string"},
+    {"npc_reply": "string"},
+    {"npc_reply": "string"},
+    {"npc_reply": "string"}
   ]
-}`
+}
+# IMPORTANT: The "turns" array MUST contain exactly 5 objects. Return ONLY the JSON object above (no explanation, no markdown, no surrounding text).`
 	case ModeSpelling:
 		prompt += `
 {
@@ -142,20 +145,119 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 		}
 	}
 
-	// The Gemini API might return markdown, so we need to extract the JSON block.
-	// This is a simple approach; a more robust solution might use a JSON parser that
-	// can handle surrounding text.
+	// The Gemini API might return markdown or surrounding text, so extract the first
+	// well-formed JSON object using a simple brace-matching parser that handles
+	// string literals and escapes.
 	jsonString := string(contentBytes)
-	jsonStart := strings.Index(jsonString, "{")
-	jsonEnd := strings.LastIndex(jsonString, "}")
-
-	if jsonStart == -1 || jsonEnd == -1 || jsonEnd < jsonStart {
+	extracted, ok := findJSONBlock(jsonString)
+	if !ok {
 		return QuestionPayload{}, fmt.Errorf("could not extract JSON from Gemini API response: %s", jsonString)
 	}
 
-	extractedJSON := []byte(jsonString[jsonStart : jsonEnd+1])
+	extractedJSON := []byte(extracted)
+
+	// If mode is tavern and the extracted JSON doesn't have 5 turns, scan all JSON
+	// blocks in the response and pick the first one that does.
+	if mode == ModeTavern {
+		var te TavernEnvelope
+		if err := json.Unmarshal(extractedJSON, &te); err != nil || len(te.Turns) != 5 {
+			blocks := findJSONBlocks(jsonString)
+			for _, b := range blocks {
+				var cand TavernEnvelope
+				if err := json.Unmarshal([]byte(b), &cand); err == nil && len(cand.Turns) == 5 {
+					extractedJSON = []byte(b)
+					break
+				}
+			}
+		}
+	}
 
 	return QuestionPayload{Mode: mode, Content: extractedJSON}, nil
+}
+
+// findJSONBlocks returns all top-level JSON objects found in s, in order.
+func findJSONBlocks(s string) []string {
+	results := []string{}
+	inString := false
+	escape := false
+	depth := 0
+	start := -1
+	for i, ch := range s {
+		if escape {
+			escape = false
+			continue
+		}
+		if ch == '\\' {
+			escape = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if ch == '{' {
+			if depth == 0 {
+				start = i
+			}
+			depth++
+			continue
+		}
+		if ch == '}' {
+			if depth > 0 {
+				depth--
+				if depth == 0 && start != -1 {
+					results = append(results, s[start:i+1])
+					start = -1
+				}
+			}
+		}
+	}
+	return results
+}
+
+// findJSONBlock attempts to find the first top-level JSON object in s and returns it.
+// It handles string literals and escaped quotes so braces inside strings are ignored.
+func findJSONBlock(s string) (string, bool) {
+	inString := false
+	escape := false
+	depth := 0
+	start := -1
+	for i, ch := range s {
+		if escape {
+			escape = false
+			continue
+		}
+		if ch == '\\' {
+			escape = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if ch == '{' {
+			if depth == 0 {
+				start = i
+			}
+			depth++
+			continue
+		}
+		if ch == '}' {
+			if depth > 0 {
+				depth--
+				if depth == 0 && start != -1 {
+					return s[start : i+1], true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 // FetchAndValidate obtains a payload then validates schema/count.
@@ -269,6 +371,117 @@ func validateTavern(raw []byte) error {
 		return errors.New("tavern evaluation_rubric must have at least 3 levels")
 	}
 	return nil
+}
+
+// --- Batch evaluation types and functions ---
+
+type TavernEvaluation struct {
+	Outcome string `json:"outcome"` // "success"|"normal"|"fail"
+	Reason  string `json:"reason"`
+}
+
+type batchEvalEnvelope struct {
+	Evaluations []TavernEvaluation `json:"evaluations"`
+}
+
+// BatchEvaluateTavern evaluates 5 turns in one request.
+// langPref: "en", "ja", or "both"
+func (gc *GeminiClient) BatchEvaluateTavern(ctx context.Context, rubric []string, npcOpening string, npcReplies []TavernTurn, playerUtterances []string, langPref string) ([]TavernEvaluation, error) {
+	if len(npcReplies) != 5 || len(playerUtterances) != 5 {
+		return nil, fmt.Errorf("expected 5 npcReplies and 5 playerUtterances")
+	}
+
+	prompt := buildBatchEvalPrompt(rubric, npcOpening, npcReplies, playerUtterances, langPref)
+
+	resp, err := gc.client.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return fallbackEvaluations(fmt.Errorf("gemini generate error: %w", err)), nil
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return fallbackEvaluations(fmt.Errorf("no content from gemini")), nil
+	}
+
+	var contentBytes []byte
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if text, ok := part.(genai.Text); ok {
+			contentBytes = append(contentBytes, []byte(text)...)
+		}
+	}
+
+	jsonStr := string(contentBytes)
+	extracted, ok := findJSONBlock(jsonStr)
+	if !ok {
+		return fallbackEvaluations(fmt.Errorf("could not extract JSON from response: %s", jsonStr)), nil
+	}
+
+	var env batchEvalEnvelope
+	if err := json.Unmarshal([]byte(extracted), &env); err != nil {
+		return fallbackEvaluations(fmt.Errorf("invalid JSON: %w", err)), nil
+	}
+
+	if len(env.Evaluations) != 5 {
+		return fallbackEvaluations(fmt.Errorf("evaluations length != 5: %d", len(env.Evaluations))), nil
+	}
+
+	for i := range env.Evaluations {
+		switch env.Evaluations[i].Outcome {
+		case "success", "normal", "fail":
+			// ok
+		default:
+			return fallbackEvaluations(fmt.Errorf("invalid outcome: %s", env.Evaluations[i].Outcome)), nil
+		}
+	}
+
+	return env.Evaluations, nil
+}
+
+func fallbackEvaluations(err error) []TavernEvaluation {
+	fmt.Fprintf(os.Stderr, "BatchEvaluateTavern fallback: %v\n", err)
+	res := make([]TavernEvaluation, 5)
+	for i := range res {
+		res[i] = TavernEvaluation{
+			Outcome: "normal",
+			Reason:  "Evaluation failed — defaulted to normal",
+		}
+	}
+	return res
+}
+
+func buildBatchEvalPrompt(rubric []string, npcOpening string, npcReplies []TavernTurn, playerUtterances []string, langPref string) string {
+	var b strings.Builder
+	b.WriteString("You are an English conversation evaluator. Use the evaluation rubric below to judge each player utterance for the corresponding NPC reply. ")
+	b.WriteString("Return only valid JSON with this format:\n")
+	b.WriteString(`{"evaluations":[{"outcome":"success|normal|fail","reason":"short reason in the chosen language"}, ...]}` + "\n\n")
+
+	b.WriteString("Evaluation rubric (EN):\n")
+	for i, r := range rubric {
+		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, r))
+	}
+	b.WriteString("\n評価基準（日本語）:\n")
+	for i, r := range rubric {
+		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, r))
+	}
+	b.WriteString("\n")
+
+	b.WriteString("NPC Opening:\n")
+	b.WriteString(npcOpening + "\n\n")
+
+	for i := 0; i < 5; i++ {
+		b.WriteString(fmt.Sprintf("Turn %d NPC reply (EN):\n%s\n", i+1, npcReplies[i].NPCReply))
+		b.WriteString(fmt.Sprintf("Turn %d Player utterance:\n%s\n\n", i+1, playerUtterances[i]))
+	}
+
+	if langPref == "ja" {
+		b.WriteString("Please return reasons in Japanese.\n")
+	} else if langPref == "en" {
+		b.WriteString("Please return reasons in English.\n")
+	} else {
+		b.WriteString("Please return reasons in both English and Japanese (e.g. 'EN reason.／JP reason.').\n")
+	}
+
+	b.WriteString("Make sure the JSON is valid and contains exactly 5 evaluations in order.\n")
+	return b.String()
 }
 
 type SpellingPrompt struct {
