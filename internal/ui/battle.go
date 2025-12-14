@@ -16,14 +16,14 @@ import (
 
 var (
 	battleStyle         = lipgloss.NewStyle().Padding(1, 2)
-	battleTitleStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
-	questionStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).PaddingBottom(1)
+	battleTitleStyle    = lipgloss.NewStyle().Bold(true).Foreground(components.ColorDanger)
+	questionStyle       = lipgloss.NewStyle().Foreground(components.ColorInfo).PaddingBottom(1)
 	optionStyle         = lipgloss.NewStyle().PaddingLeft(2)
-	selectedOptionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true).PaddingLeft(1)
-	answerInputStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	selectedOptionStyle = lipgloss.NewStyle().Foreground(components.ColorPrimary).Bold(true).PaddingLeft(1)
+	answerInputStyle    = lipgloss.NewStyle().Foreground(components.ColorMuted)
 	feedbackStyle       = lipgloss.NewStyle().PaddingTop(1)
-	correctStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	incorrectStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	correctStyle        = lipgloss.NewStyle().Foreground(components.ColorPrimary)
+	incorrectStyle      = lipgloss.NewStyle().Foreground(components.ColorDanger)
 )
 
 // BattleModel represents the vocabulary battle screen.

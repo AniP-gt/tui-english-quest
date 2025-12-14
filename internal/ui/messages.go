@@ -5,4 +5,3 @@ type TownToBattleMsg struct{}
 
 // TownToDungeonMsg indicates a transition from the town view to the dungeon view.
 type TownToDungeonMsg struct{}
-

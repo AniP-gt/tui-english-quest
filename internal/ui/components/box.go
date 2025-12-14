@@ -15,9 +15,19 @@ func Box(title, content, tone string, width int) string {
 	case "danger":
 		bg = ColorDanger
 	}
-	style := lipgloss.NewStyle().Background(bg).Border(lipgloss.RoundedBorder()).Padding(1, 1).Width(width)
+	outer := lipgloss.NewStyle().Background(bg).Border(lipgloss.RoundedBorder()).Padding(1, 1).Width(width)
+	titleStyled := title
+	contentStyled := content
+	// Render content with muted foreground on the box background.
 	if title != "" {
-		return style.Render(title + "\n" + content)
+		titleStyled = lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title)
 	}
-	return style.Render(content)
+	if content != "" {
+		// content may already include centered/colored lines, so avoid double-styling; only apply muted if plain
+		contentStyled = content
+	}
+	if title != "" {
+		return outer.Render(titleStyled + "\n" + contentStyled)
+	}
+	return outer.Render(contentStyled)
 }

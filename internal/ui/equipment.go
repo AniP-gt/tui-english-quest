@@ -12,7 +12,7 @@ import (
 
 var (
 	equipmentStyle      = lipgloss.NewStyle().Padding(1, 2)
-	equipmentTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	equipmentTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
 	equipmentItemStyle  = lipgloss.NewStyle().PaddingLeft(2)
 )
 

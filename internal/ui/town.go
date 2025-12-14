@@ -28,10 +28,10 @@ var (
 
 	townMenuStyle     = lipgloss.NewStyle().Padding(1, 0)
 	townItemStyle     = lipgloss.NewStyle().PaddingLeft(2)
-	townCursorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("205")) // Pink
-	townAdviceStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+	townCursorStyle   = lipgloss.NewStyle().Foreground(components.ColorAccent) // Pink
+	townAdviceStyle   = lipgloss.NewStyle().Foreground(components.ColorMuted).Italic(true)
 	menuItemStyle     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Width(25).Align(lipgloss.Center)
-	menuSelectedStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Width(25).Align(lipgloss.Center).Background(lipgloss.Color("62")).Foreground(lipgloss.Color("0"))
+	menuSelectedStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Width(25).Align(lipgloss.Center).Background(components.ColorPrimary).Foreground(components.ColorBoxDark)
 )
 
 // TownModel handles the town/home screen.
@@ -128,7 +128,7 @@ func (m TownModel) View() string {
 		header,
 		lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""), // Separator
 		townMenuStyle.Render(menuBody),
-		lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true).Render(advice),
+		lipgloss.NewStyle().Foreground(components.ColorMuted).Italic(true).Render(advice),
 		lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""), // Separator
 		footer,
 	)

@@ -16,13 +16,13 @@ import (
 
 var (
 	dungeonStyle            = lipgloss.NewStyle().Padding(1, 2)
-	dungeonTitleStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13")) // Purple
-	questionStyleDungeon    = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).PaddingBottom(1)
+	dungeonTitleStyle       = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPurple) // Purple
+	questionStyleDungeon    = lipgloss.NewStyle().Foreground(components.ColorInfo).PaddingBottom(1)
 	optionStyleDungeon      = lipgloss.NewStyle().PaddingLeft(2)
-	answerInputStyleDungeon = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	answerInputStyleDungeon = lipgloss.NewStyle().Foreground(components.ColorMuted)
 	feedbackStyleDungeon    = lipgloss.NewStyle().PaddingTop(1)
-	correctStyleDungeon     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	incorrectStyleDungeon   = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	correctStyleDungeon     = lipgloss.NewStyle().Foreground(components.ColorPrimary)
+	incorrectStyleDungeon   = lipgloss.NewStyle().Foreground(components.ColorDanger)
 )
 
 // DungeonModel represents the grammar dungeon screen.

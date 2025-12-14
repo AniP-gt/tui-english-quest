@@ -12,7 +12,7 @@ import (
 
 var (
 	statusStyle      = lipgloss.NewStyle().Padding(1, 2)
-	statusTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	statusTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
 	statusItemStyle  = lipgloss.NewStyle().PaddingLeft(2)
 )
 
@@ -51,21 +51,26 @@ func (m StatusModel) View() string {
 	b.WriteString(statusTitleStyle.Render("Player Status\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Name: %s\n", s.Name)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Class: %s\n", s.Class)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Level: %d\n", s.Level)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Experience: %d / %d\n", s.Exp, s.Next)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("HP: %d / %d\n", s.HP, s.MaxHP)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Attack: %d\n", s.Attack)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Defense: %.1f\n", s.Defense)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Combo: %d\n", s.Combo)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Streak: %d days\n", s.Streak)))
-	b.WriteString(statusItemStyle.Render(fmt.Sprintf("Gold: %d\n", s.Gold)))
+	// Build aligned key-value lines
+	labelWidth := 14
+	lines := ""
+	lines += fmt.Sprintf("%-*s %s\n", labelWidth, "Name:", s.Name)
+	lines += fmt.Sprintf("%-*s %s\n", labelWidth, "Class:", s.Class)
+	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Level:", s.Level)
+	lines += fmt.Sprintf("%-*s %d / %d\n", labelWidth, "Experience:", s.Exp, s.Next)
+	lines += fmt.Sprintf("%-*s %d / %d\n", labelWidth, "HP:", s.HP, s.MaxHP)
+	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Attack:", s.Attack)
+	lines += fmt.Sprintf("%-*s %.1f\n", labelWidth, "Defense:", s.Defense)
+	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Combo:", s.Combo)
+	lines += fmt.Sprintf("%-*s %d days\n", labelWidth, "Streak:", s.Streak)
+	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Gold:", s.Gold)
 
 	// Badges or achievements (placeholder)
-	b.WriteString(statusItemStyle.Render("\nAchievements:\n"))
-	b.WriteString(statusItemStyle.Render("- First Victory\n"))
-	b.WriteString(statusItemStyle.Render("- Combo Master\n"))
+	lines += "\nAchievements:\n"
+	lines += "  - First Victory\n"
+	lines += "  - Combo Master\n"
+
+	b.WriteString(lines)
 
 	footer := components.Footer("[Enter/Esc] Back to Town", 0)
 

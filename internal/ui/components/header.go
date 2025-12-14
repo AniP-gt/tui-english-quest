@@ -20,6 +20,6 @@ func Header(s game.Stats, showStatus bool, width int) string {
 	// Join with spacing
 	head := lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().PaddingLeft(1).Render(right))
 	// Add separator line under header
-	sep := lipgloss.NewStyle().Width(lipgloss.Width(head)).Border(lipgloss.NormalBorder()).Render("")
+	sep := lipgloss.NewStyle().Width(lipgloss.Width(head)).Border(lipgloss.NormalBorder(), false, false, true, false).Render("")
 	return fmt.Sprintf("%s\n%s", head, sep)
 }

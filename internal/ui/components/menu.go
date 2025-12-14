@@ -17,7 +17,7 @@ func Menu(items []string, selected int, cols int, width int) string {
 	for i, it := range items {
 		col := i % cols
 		if i == selected {
-			columns[col] = append(columns[col], lipgloss.NewStyle().Background(ColorAccent).Foreground(lipgloss.Color("0")).Padding(0, 1).Render("> "+it))
+			columns[col] = append(columns[col], lipgloss.NewStyle().Background(ColorAccent).Foreground(ColorBoxDark).Padding(0, 1).Render("> "+it))
 		} else {
 			columns[col] = append(columns[col], lipgloss.NewStyle().Foreground(ColorPrimary).Padding(0, 1).Render("  "+it))
 		}

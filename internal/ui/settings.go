@@ -14,7 +14,7 @@ import (
 
 var (
 	settingsStyle      = lipgloss.NewStyle().Padding(1, 2)
-	settingsTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	settingsTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
 	settingsItemStyle  = lipgloss.NewStyle().PaddingLeft(2)
 )
 

@@ -14,8 +14,8 @@ import (
 
 var (
 	analysisStyle        = lipgloss.NewStyle().Padding(1, 2)
-	analysisTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
-	analysisSectionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	analysisTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
+	analysisSectionStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorMuted)
 	analysisItemStyle    = lipgloss.NewStyle().PaddingLeft(2)
 )
 

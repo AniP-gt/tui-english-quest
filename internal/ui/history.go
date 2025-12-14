@@ -14,9 +14,9 @@ import (
 
 var (
 	historyStyle       = lipgloss.NewStyle().Padding(1, 2)
-	historyTitleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	historyTitleStyle  = lipgloss.NewStyle().Bold(true).Foreground(components.ColorPrimary)
 	historyItemStyle   = lipgloss.NewStyle().PaddingLeft(2)
-	historyHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	historyHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(components.ColorMuted)
 )
 
 // HistoryModel displays the player's session history.
