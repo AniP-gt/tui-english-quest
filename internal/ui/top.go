@@ -273,10 +273,8 @@ func (m RootModel) View() string {
 }
 
 func (m RootModel) viewTop() string {
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(m.Status))).Render("TUI English Quest"),
-		components.View(m.Status),
-	)
+	// Use shared header and footer components
+	header := components.Header(m.Status, true, 0)
 	body := ""
 	for i, item := range m.menu {
 		cursor := "  "
@@ -285,9 +283,9 @@ func (m RootModel) viewTop() string {
 		}
 		body += fmt.Sprintf("%s%s\n", cursor, item)
 	}
-	footer := "[j/k] Move  [Enter] Select  [n] New Game  [q] Quit"
+	footer := components.Footer("[j/k] Move  [Enter] Select  [n] New Game  [q] Quit", 0)
 	if m.note != "" {
-		footer += "\n" + noteStyle.Render(m.note)
+		footer = footer + "\n" + noteStyle.Render(m.note)
 	}
 	return fmt.Sprintf("%s\n%s\n\n%s\n", header, menuStyle.Render(body), footer)
 }
