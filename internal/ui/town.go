@@ -94,6 +94,10 @@ func (m TownModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, func() tea.Msg { return TownToDungeonMsg{} }
 			case "🍺 Conversation Tavern":
 				return m, func() tea.Msg { return TownToTavernMsg{} }
+			case "🪄 Spelling Challenge":
+				return m, func() tea.Msg { return TownToSpellingMsg{} }
+			case "🔊 Listening Cave":
+				return m, func() tea.Msg { return TownToListeningMsg{} }
 			case "🎒 Equipment":
 				return m, func() tea.Msg { return TownToEquipmentMsg{} }
 			case "🧠 AI Analysis":
