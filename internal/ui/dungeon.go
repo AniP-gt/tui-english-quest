@@ -159,10 +159,7 @@ func (m DungeonModel) View() string {
 	}
 
 	s := m.playerStats
-	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(lipgloss.Width(components.View(s))).Render("TUI English Quest"),
-		components.View(s),
-	)
+	header := components.Header(s, true, 0)
 
 	var content string
 	if len(m.questions) == 0 {
@@ -203,7 +200,7 @@ func (m DungeonModel) View() string {
 		)
 	}
 
-	footer := "\n[j/k] Move  [Enter] Select/Answer  [Esc] Back to Town  [q/ctrl+c] Quit"
+	footer := components.Footer("[j/k] Move  [Enter] Select/Answer  [Esc] Back to Town  [q/ctrl+c] Quit", 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
