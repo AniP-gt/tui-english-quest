@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
 	"tui-english-quest/internal/ui/components"
 )
@@ -28,28 +29,35 @@ type SettingsModel struct {
 	showConfirmExit bool     // Whether to show the exit confirmation
 	confirmCursor   int      // Cursor for the exit confirmation menu
 	confirmMenu     []string // Menu for exit confirmation
+	langPref        string   // "en"/"ja"/"both"
 }
 
 // NewSettingsModel creates a new SettingsModel.
 func NewSettingsModel(stats game.Stats) SettingsModel {
+	cfg, _ := config.LoadConfig()
+
 	ti := textinput.New()
-	ti.Placeholder = "Enter your Gemini API key"
+	ti.Placeholder = "ジェミニAPIキーを入力"
 	ti.CharLimit = 100
 	ti.Width = 50
 
-	// Load current API key from environment for comparison
+	// Load current API key from environment for comparison; also allow config stored key
 	currentAPIKey := os.Getenv("GEMINI_API_KEY")
+	if currentAPIKey == "" {
+		currentAPIKey = cfg.ApiKey
+	}
 	ti.SetValue(currentAPIKey) // Set initial value of text input
 
 	return SettingsModel{
 		playerStats:     stats,
 		apiKeyInput:     ti,
 		cursor:          0,
-		menu:            []string{"Set Gemini API Key", "Save and Exit"},
+		menu:            []string{"ジェミニAPIキー設定", fmt.Sprintf("言語設定 (現在: %s)", strings.ToUpper(cfg.LangPref)), "保存して終了"},
 		originalAPIKey:  currentAPIKey,
 		showConfirmExit: false,
 		confirmCursor:   0,
-		confirmMenu:     []string{"Save Changes", "Discard Changes", "Cancel"},
+		confirmMenu:     []string{"変更を保存", "変更を破棄", "キャンセル"},
+		langPref:        cfg.LangPref,
 	}
 }
 
@@ -75,19 +83,21 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				switch m.confirmMenu[m.confirmCursor] {
-				case "Save Changes":
-					// Save logic
+				case "変更を保存":
+					// Save logic: write API key and config
 					apiKey := m.apiKeyInput.Value()
+					cfg := config.Config{LangPref: m.langPref, ApiKey: apiKey}
+					if err := config.SaveConfig(cfg); err != nil {
+						// TODO: show error
+					}
+					// also set env for current process
 					if apiKey != "" {
-						envContent := fmt.Sprintf("DB_PATH=./db.sqlite\nGEMINI_API_KEY=%s\n", apiKey)
-						if err := os.WriteFile(".env", []byte(envContent), 0644); err != nil {
-							// TODO: Handle error, show message to user
-						}
+						_ = os.Setenv("GEMINI_API_KEY", apiKey)
 					}
 					return m, func() tea.Msg { return SettingsToTownMsg{} }
-				case "Discard Changes":
+				case "変更を破棄":
 					return m, func() tea.Msg { return SettingsToTownMsg{} }
-				case "Cancel":
+				case "キャンセル":
 					m.showConfirmExit = false
 					m.confirmCursor = 0 // Reset cursor
 					return m, nil
@@ -107,9 +117,9 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showConfirmExit = true
 				return m, nil
 			}
+			// otherwise return
 			return m, func() tea.Msg { return SettingsToTownMsg{} }
 		case "esc":
-			// If API key changed, show confirmation
 			if m.apiKeyInput.Value() != m.originalAPIKey {
 				m.showConfirmExit = true
 				return m, nil
@@ -124,18 +134,31 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter":
-			if m.cursor == 0 {
+			switch m.cursor {
+			case 0:
 				// Focus API key input
 				m.apiKeyInput.Focus()
-			} else if m.cursor == 1 {
+			case 1:
+				// Cycle language preference: en -> ja -> both -> en
+				switch m.langPref {
+				case "en":
+					m.langPref = "ja"
+				case "ja":
+					m.langPref = "both"
+				default:
+					m.langPref = "en"
+				}
+				// update menu label to show current
+				m.menu[1] = fmt.Sprintf("言語設定 (現在: %s)", strings.ToUpper(m.langPref))
+			case 2:
 				// Save and exit
 				apiKey := m.apiKeyInput.Value()
+				cfg := config.Config{LangPref: m.langPref, ApiKey: apiKey}
+				if err := config.SaveConfig(cfg); err != nil {
+					// handle error
+				}
 				if apiKey != "" {
-					// Save to .env file
-					envContent := fmt.Sprintf("DB_PATH=./db.sqlite\nGEMINI_API_KEY=%s\n", apiKey)
-					if err := os.WriteFile(".env", []byte(envContent), 0644); err != nil {
-						// Handle error, perhaps show message
-					}
+					_ = os.Setenv("GEMINI_API_KEY", apiKey)
 				}
 				return m, func() tea.Msg { return SettingsToTownMsg{} }
 			}
@@ -154,11 +177,11 @@ func (m SettingsModel) View() string {
 	header := components.Header(s, true, 0)
 
 	var b strings.Builder
-	b.WriteString(settingsTitleStyle.Render("Settings\n"))
+	b.WriteString(settingsTitleStyle.Render("設定\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
 	if m.showConfirmExit {
-		b.WriteString("\nAPI key has changed. Do you want to save?\n\n")
+		b.WriteString("\nAPIキーが変更されました。保存しますか?\n\n")
 		for i, item := range m.confirmMenu {
 			cursor := "  "
 			if i == m.confirmCursor {
@@ -176,7 +199,7 @@ func (m SettingsModel) View() string {
 		)
 	}
 
-	b.WriteString("Configure application settings:\n\n")
+	b.WriteString("アプリケーション設定:\n\n")
 
 	for i, item := range m.menu {
 		cursor := "  "
@@ -185,7 +208,7 @@ func (m SettingsModel) View() string {
 		}
 		b.WriteString(fmt.Sprintf("%s%s\n", cursor, item))
 		if i == 0 {
-			b.WriteString(settingsItemStyle.Render(fmt.Sprintf("API Key: %s\n", m.apiKeyInput.View())))
+			b.WriteString(settingsItemStyle.Render(fmt.Sprintf("APIキー: %s\n", m.apiKeyInput.View())))
 		}
 	}
 

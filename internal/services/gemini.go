@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings" // Added strings import
+	"tui-english-quest/internal/config"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -58,7 +59,22 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 	}
 	// The genai.GenerativeModel does not have a Close() method, so we don't defer it here.
 
+	// Read user language preference from config and build language directive
+	langPref := "both"
+	if cfg, err := config.LoadConfig(); err == nil {
+		langPref = cfg.LangPref
+	}
+
 	prompt := fmt.Sprintf("Generate 5 *new and diverse* %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", mode, mode)
+
+	// Add language instruction depending on preference
+	if langPref == "ja" {
+		prompt = "Please write the problem text in Japanese, but provide answers/options in English. Return only JSON.\n\n" + prompt
+	} else if langPref == "en" {
+		prompt = "Please write the problem text and answers in English. Return only JSON.\n\n" + prompt
+	} else {
+		prompt = "Please write the problem text in Japanese and English where appropriate (problem in Japanese, answers in English). Return only JSON.\n\n" + prompt
+	}
 
 	switch mode {
 	case ModeVocab:

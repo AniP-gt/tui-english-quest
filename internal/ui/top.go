@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
@@ -75,11 +76,13 @@ type RootModel struct {
 	status       StatusModel
 	settings     SettingsModel
 	geminiClient *services.GeminiClient // Add GeminiClient
+	LangPref     string
 }
 
 // NewRootModel creates the top-level model.
 func NewRootModel() RootModel {
 	stats := game.DefaultStats()
+	cfg, _ := config.LoadConfig()
 
 	// Initialize Gemini Client
 	gc, err := services.NewGeminiClient(context.Background())
@@ -92,17 +95,18 @@ func NewRootModel() RootModel {
 	return RootModel{
 		Status: stats,
 		menu: []string{
-			"Start Adventure",
-			"New Game",
-			"Quit",
+			"冒険を始める",
+			"新しいゲーム",
+			"終了",
 		},
-		cursor:       0,
-		note:         "Press N to start a new game",
+		cursor: 0,
+		note:   "Nで新しいゲームを開始",
+
 		state:        StateTop,
 		town:         NewTownModel(stats, gc),    // Pass GeminiClient
 		battle:       NewBattleModel(stats, gc),  // Initialize BattleModel
 		dungeon:      NewDungeonModel(stats, gc), // Initialize DungeonModel
-		tavern:       NewTavernModel(stats, gc, "both"),
+		tavern:       NewTavernModel(stats, gc, cfg.LangPref),
 		spelling:     NewSpellingModel(stats, gc),
 		listening:    NewListeningModel(stats, gc),
 		analysis:     NewAnalysisModel(stats, gc), // Pass GeminiClient
@@ -111,6 +115,7 @@ func NewRootModel() RootModel {
 		status:       NewStatusModel(stats),
 		settings:     NewSettingsModel(stats),
 		geminiClient: gc,
+		LangPref:     cfg.LangPref,
 	}
 }
 
@@ -154,6 +159,12 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case SettingsToTownMsg:
 		m.state = StateTown
+		// reload config in case language or api key changed
+		if cfg, err := config.LoadConfig(); err == nil {
+			m.LangPref = cfg.LangPref
+		}
+		// reinitialize models that depend on language pref
+		m.tavern = NewTavernModel(m.Status, m.geminiClient, m.LangPref)
 		return m, nil
 	case TownToBattleMsg: // Added TownToBattleMsg handling
 		m.state = StateBattle
@@ -165,7 +176,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.dungeon.Init()
 	case TownToTavernMsg:
 		m.state = StateTavern
-		m.tavern = NewTavernModel(m.Status, m.geminiClient, "both")
+		m.tavern = NewTavernModel(m.Status, m.geminiClient, m.LangPref)
 		return m, m.tavern.Init()
 	case TownToSpellingMsg:
 		m.state = StateSpelling
@@ -360,7 +371,7 @@ func (m RootModel) viewTop() string {
 	// Use a dark box (no info/cyan background)
 	menuBox := components.Box("", content, "", boxWidth)
 
-	footer := components.Footer("[j/k] Move  [Enter] Select  [n] New Game  [q] Quit", 0)
+	footer := components.Footer("[j/k] 移動  [Enter] 選択  [n] 新しいゲーム  [q] 終了", 0)
 	if m.note != "" {
 		footer = footer + "\n" + noteStyle.Render(m.note)
 	}
