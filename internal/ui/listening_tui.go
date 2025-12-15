@@ -128,6 +128,7 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// submit answer for current question
 			if m.currentIndex < len(m.items) {
+
 				item := m.items[m.currentIndex]
 				isCorrect := m.selected == item.AnswerIndex
 				m.answers = append(m.answers, game.ListeningAnswer{Correct: isCorrect})
@@ -157,6 +158,21 @@ func (m ListeningModel) View() string {
 			content += m.feedback + "\n"
 		}
 		footer := components.Footer("[r] Replay  [Enter] Answer/Continue  [Esc/q] Back to Town", 0)
+		return lipgloss.JoinVertical(lipgloss.Left,
+			header,
+			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
+			listeningStyle.Render(content),
+			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""),
+			footer,
+		)
+	}
+	if m.currentIndex >= len(m.items) {
+		// session complete: show a brief message while Update transitions back to Town
+		content := listeningTitleStyle.Render("Session complete") + "\n\n"
+		if m.showFeedback {
+			content += m.feedback + "\n"
+		}
+		footer := components.Footer("[Enter] Continue  [Esc/q] Back to Town", 0)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			header,
 			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
