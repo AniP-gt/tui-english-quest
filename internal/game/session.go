@@ -183,5 +183,39 @@ func RunSpellingSession(ctx context.Context, stats Stats, outcomes []SpellingOut
 type ListeningAnswer struct{ Correct bool }
 
 func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAnswer) (Stats, SessionSummary, error) {
-	return stats, SessionSummary{}, nil
+	summary := SessionSummary{Mode: "listening"}
+	before := stats
+	expDelta := 0
+	hpDelta := 0
+	correct := 0
+	for _, a := range answers {
+		if a.Correct {
+			expDelta += 3 // follow grammar's smaller XP but same pattern
+			correct++
+		} else {
+			hpDelta -= 5
+		}
+	}
+	stats = GainExp(stats, expDelta)
+	stats.HP += hpDelta
+	if stats.HP < 0 {
+		stats.HP = 0
+	}
+	stats, fainted := ApplyFaint(stats)
+	summary.Correct = correct
+	summary.ExpDelta = expDelta
+	summary.HPDelta = hpDelta
+	summary.Fainted = fainted
+	summary.LeveledUp = LeveledUp(before, stats)
+
+	rec := db.SessionRecord{
+		Mode:         "listening",
+		CorrectCount: summary.Correct,
+		ExpGained:    expDelta,
+		HPDelta:      hpDelta,
+		Fainted:      fainted,
+		LeveledUp:    summary.LeveledUp,
+	}
+	_ = db.SaveSession(ctx, rec)
+	return stats, summary, nil
 }
