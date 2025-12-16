@@ -29,3 +29,4 @@ coverage/
 # Agent-related directories
 .specify/
 .opencode/
+openspec/
