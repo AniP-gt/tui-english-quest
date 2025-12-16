@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/db"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/ui/components"
 )
 
@@ -70,11 +71,11 @@ func (m HistoryModel) View() string {
 	header := components.Header(s, true, 0)
 
 	var b strings.Builder
-	b.WriteString(historyTitleStyle.Render("Session History\n"))
+	b.WriteString(historyTitleStyle.Render(i18n.T("history_title") + "\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
 	if len(m.sessions) == 0 {
-		b.WriteString(historyItemStyle.Render("No sessions found.\n"))
+		b.WriteString(historyItemStyle.Render(i18n.T("history_no_sessions") + "\n"))
 	} else {
 		// Header
 		b.WriteString(historyHeaderStyle.Render(fmt.Sprintf("%-12s %-10s %-8s %-6s %-6s %-8s\n", "Date", "Mode", "Score", "EXP", "Gold", "HP Δ")))
@@ -103,7 +104,7 @@ func (m HistoryModel) View() string {
 		}
 	}
 
-	footer := components.Footer("[j/k] Navigate  [Enter/Esc] Back to Town", 0)
+	footer := components.Footer(i18n.T("footer_history"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

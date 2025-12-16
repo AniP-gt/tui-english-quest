@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -133,9 +134,9 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				isCorrect := m.selected == item.AnswerIndex
 				m.answers = append(m.answers, game.ListeningAnswer{Correct: isCorrect})
 				if isCorrect {
-					m.feedback = "Correct!"
+					m.feedback = i18n.T("correct_feedback")
 				} else {
-					m.feedback = fmt.Sprintf("Incorrect. Answer: %s", item.Options[item.AnswerIndex])
+					m.feedback = fmt.Sprintf(i18n.T("incorrect_feedback"), item.Options[item.AnswerIndex])
 				}
 				m.showFeedback = true
 				return m, nil
@@ -148,16 +149,16 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ListeningModel) View() string {
 	if m.quitting {
-		return "Exiting TUI English Quest...\n"
+		return i18n.T("exiting_message") + "\n"
 	}
 	header := components.Header(m.playerStats, true, 0)
 
 	if len(m.items) == 0 {
-		content := "Fetching listening items...\n"
+		content := i18n.FetchingFor("listening") + "\n"
 		if m.showFeedback {
 			content += m.feedback + "\n"
 		}
-		footer := components.Footer("[r] Replay  [Enter] Answer/Continue  [Esc/q] Back to Town", 0)
+		footer := components.Footer(i18n.T("footer_listening1"), 0)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			header,
 			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
@@ -168,11 +169,11 @@ func (m ListeningModel) View() string {
 	}
 	if m.currentIndex >= len(m.items) {
 		// session complete: show a brief message while Update transitions back to Town
-		content := listeningTitleStyle.Render("Session complete") + "\n\n"
+		content := listeningTitleStyle.Render(i18n.T("session_complete")) + "\n\n"
 		if m.showFeedback {
 			content += m.feedback + "\n"
 		}
-		footer := components.Footer("[Enter] Continue  [Esc/q] Back to Town", 0)
+		footer := components.Footer(i18n.T("footer_listening2"), 0)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			header,
 			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
@@ -183,8 +184,8 @@ func (m ListeningModel) View() string {
 	}
 
 	item := m.items[m.currentIndex]
-	qText := listeningTitleStyle.Render(fmt.Sprintf("Listening %d/%d", m.currentIndex+1, len(m.items))) + "\n\n"
-	qText += fmt.Sprintf("(Press [r] to replay)\n\n")
+	qText := listeningTitleStyle.Render(fmt.Sprintf(i18n.T("listening_progress"), m.currentIndex+1, len(m.items))) + "\n\n"
+	qText += fmt.Sprintf("%s\n\n", i18n.T("press_r_replay"))
 
 	var opts []string
 	for i, o := range item.Options {
@@ -202,7 +203,7 @@ func (m ListeningModel) View() string {
 		feedbackText = "\n" + m.feedback + "\nPress Enter to continue..."
 	}
 
-	footer := components.Footer("[j/k] Move  [1-4] Quick select  [r] Replay  [Enter] Answer/Continue  [Esc/q] Back to Town", 0)
+	footer := components.Footer(i18n.T("footer_listening3"), 0)
 
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		qText,

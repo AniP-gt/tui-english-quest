@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -43,7 +44,7 @@ type DungeonModel struct {
 // NewDungeonModel creates a new DungeonModel.
 func NewDungeonModel(stats game.Stats, gc *services.GeminiClient) DungeonModel {
 	ti := textinput.New()
-	ti.Placeholder = "Your answer..."
+	ti.Placeholder = i18n.T("dungeon_placeholder")
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 50
@@ -96,7 +97,7 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case DungeonQuestionMsg:
 		if msg.Err != nil {
-			m.feedback = fmt.Sprintf("Error fetching questions: %v", msg.Err)
+			m.feedback = fmt.Sprintf(i18n.T("error_fetching_questions"), msg.Err)
 			m.showFeedback = true
 			return m, nil
 		}
@@ -132,11 +133,11 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.answers = append(m.answers, game.GrammarAnswer{Correct: isCorrect})
 
 			if isCorrect {
-				m.feedback = "Correct!"
+				m.feedback = i18n.T("correct_feedback")
 				m.isCorrect = true
 				// TODO: Update player stats (EXP, Combo, etc.) - will be handled by RunGrammarSession
 			} else {
-				m.feedback = fmt.Sprintf("Incorrect. The answer was: %s", currentQ.Options[currentQ.AnswerIndex])
+				m.feedback = fmt.Sprintf(i18n.T("dungeon_incorrect_answer"), currentQ.Options[currentQ.AnswerIndex])
 				m.isCorrect = false
 				// TODO: Update player stats (HP, Combo reset, etc.) - will be handled by RunGrammarSession
 			}
@@ -155,7 +156,7 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m DungeonModel) View() string {
 	if m.quitting {
-		return "Exiting TUI English Quest...\n"
+		return i18n.T("exiting_message") + "\n"
 	}
 
 	s := m.playerStats
@@ -163,13 +164,13 @@ func (m DungeonModel) View() string {
 
 	var content string
 	if len(m.questions) == 0 {
-		content = "Fetching questions...\n"
+		content = i18n.FetchingFor("dungeon") + "\n"
 		if m.showFeedback { // Display error if fetching failed
 			content += feedbackStyleDungeon.Render(m.feedback)
 		}
 	} else {
 		currentQ := m.questions[m.currentQuestion]
-		questionText := questionStyleDungeon.Render(fmt.Sprintf("Question %d/%d: %s", m.currentQuestion+1, len(m.questions), currentQ.Question))
+		questionText := questionStyleDungeon.Render(fmt.Sprintf(i18n.T("dungeon_question_progress"), m.currentQuestion+1, len(m.questions), currentQ.Question))
 
 		// Calculate content width based on header width
 		contentWidth := lipgloss.Width(header) - dungeonStyle.GetHorizontalPadding()
@@ -189,7 +190,7 @@ func (m DungeonModel) View() string {
 			} else {
 				feedbackText = feedbackStyleDungeon.Render(incorrectStyleDungeon.Render(m.feedback))
 			}
-			feedbackText += "\nPress Enter to continue..."
+			feedbackText += "\n" + i18n.T("press_enter_continue")
 		}
 
 		content = lipgloss.JoinVertical(lipgloss.Left,
@@ -200,7 +201,7 @@ func (m DungeonModel) View() string {
 		)
 	}
 
-	footer := components.Footer("[j/k] Move  [Enter] Select/Answer  [Esc] Back to Town  [q/ctrl+c] Quit", 0)
+	footer := components.Footer(i18n.T("footer_dungeon"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

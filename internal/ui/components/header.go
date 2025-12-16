@@ -5,11 +5,12 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 )
 
 // Header renders the application header with optional status line.
 func Header(s game.Stats, showStatus bool, width int) string {
-	left := lipgloss.NewStyle().Bold(true).Foreground(ColorPrimary).Render("TUI English Quest")
+	left := lipgloss.NewStyle().Bold(true).Foreground(ColorPrimary).Render(i18n.T("app_title"))
 	var right string
 	if showStatus {
 		// Use existing status view in this package

@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -63,12 +64,12 @@ func (m AnalysisModel) View() string {
 	header := components.Header(s, true, 0)
 
 	var b strings.Builder
-	b.WriteString(analysisTitleStyle.Render("AI Analysis\n"))
+	b.WriteString(analysisTitleStyle.Render(i18n.T("analysis_title") + "\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
-	b.WriteString(analysisSectionStyle.Render("\nYour recent performance (last 200 questions)\n"))
+	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_recent_performance") + "\n"))
 
-	b.WriteString(analysisSectionStyle.Render("\nWeak points:\n"))
+	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_weak_points") + "\n"))
 	if len(m.report.WeakPoints) == 0 {
 		b.WriteString(analysisItemStyle.Render("- None identified\n"))
 	} else {
@@ -77,7 +78,7 @@ func (m AnalysisModel) View() string {
 		}
 	}
 
-	b.WriteString(analysisSectionStyle.Render("\nStrengths:\n"))
+	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_strengths") + "\n"))
 	if len(m.report.StrengthPoints) == 0 {
 		b.WriteString(analysisItemStyle.Render("- None identified\n"))
 	} else {
@@ -86,10 +87,10 @@ func (m AnalysisModel) View() string {
 		}
 	}
 
-	b.WriteString(analysisSectionStyle.Render("\nRecommendations:\n"))
+	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_recommendations") + "\n"))
 	b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", m.report.Recommendation)))
 
-	footer := components.Footer("[Enter] OK  [Esc] Back to Town", 0)
+	footer := components.Footer(i18n.T("footer_analysis"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
