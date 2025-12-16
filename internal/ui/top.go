@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -81,8 +82,10 @@ type RootModel struct {
 
 // NewRootModel creates the top-level model.
 func NewRootModel() RootModel {
-	stats := game.DefaultStats()
 	cfg, _ := config.LoadConfig()
+	i18n.SetLang(cfg.LangPref)
+
+	stats := game.DefaultStats()
 
 	// Initialize Gemini Client
 	gc, err := services.NewGeminiClient(context.Background())
@@ -94,13 +97,9 @@ func NewRootModel() RootModel {
 
 	return RootModel{
 		Status: stats,
-		menu: []string{
-			"冒険を始める",
-			"新しいゲーム",
-			"終了",
-		},
+		menu:   []string{i18n.T("menu_start"), i18n.T("menu_new"), i18n.T("menu_quit")},
 		cursor: 0,
-		note:   "Nで新しいゲームを開始",
+		note:   i18n.T("note_newgame"),
 
 		state:        StateTop,
 		town:         NewTownModel(stats, gc),    // Pass GeminiClient
@@ -162,6 +161,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// reload config in case language or api key changed
 		if cfg, err := config.LoadConfig(); err == nil {
 			m.LangPref = cfg.LangPref
+			// apply new language globally
+			i18n.SetLang(m.LangPref)
 		}
 		// reinitialize models that depend on language pref
 		m.tavern = NewTavernModel(m.Status, m.geminiClient, m.LangPref)
@@ -284,19 +285,18 @@ func (m RootModel) updateTop(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m RootModel) handleTopEnter() (tea.Model, tea.Cmd) {
-	choice := m.menu[m.cursor]
-	switch choice {
-	case "Start Adventure":
+	switch m.cursor {
+	case 0: // Start Adventure
 		m.state = StateTown
 		m.town = NewTownModel(m.Status, m.geminiClient)
 		return m, nil
-	case "New Game":
+	case 1: // New Game
 		m.Status = game.DefaultStats()
-		m.note = "New Game started with defaults"
+		m.note = i18n.T("note_newgame")
 		m.town = NewTownModel(m.Status, m.geminiClient)
 		m.state = StateTown
 		return m, nil
-	case "Quit":
+	case 2: // Quit
 		return m, tea.Quit
 	default:
 		return m, nil
@@ -353,7 +353,7 @@ func (m RootModel) viewTop() string {
 	innerWidth := boxWidth - 4 // account for box padding/border
 
 	// Large centered title (use Accent color, not blue)
-	title := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Foreground(components.ColorAccent).Bold(true).Render("TUI English Quest")
+	title := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Foreground(components.ColorAccent).Bold(true).Render(i18n.T("app_title"))
 
 	// Build centered menu items, highlight selected
 	var menuLines []string
@@ -371,7 +371,7 @@ func (m RootModel) viewTop() string {
 	// Use a dark box (no info/cyan background)
 	menuBox := components.Box("", content, "", boxWidth)
 
-	footer := components.Footer("[j/k] 移動  [Enter] 選択  [n] 新しいゲーム  [q] 終了", 0)
+	footer := components.Footer(i18n.T("footer_main"), 0)
 	if m.note != "" {
 		footer = footer + "\n" + noteStyle.Render(m.note)
 	}

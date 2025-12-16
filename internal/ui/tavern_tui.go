@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -34,7 +35,7 @@ type TavernModel struct {
 	showFeedback bool
 	quitting     bool
 
-	langPref string // "en"/"ja"/"both"
+	langPref string // "en"/"ja"
 }
 
 type TavernQuestionMsg struct {
@@ -52,7 +53,8 @@ type TavernEvalMsg struct {
 
 func NewTavernModel(stats game.Stats, gc *services.GeminiClient, langPref string) TavernModel {
 	ti := textinput.New()
-	ti.Placeholder = "Say something..."
+	ti.Placeholder = i18n.T("tavern_placeholder")
+
 	ti.Focus()
 	ti.CharLimit = 200
 	ti.Width = 60
@@ -115,7 +117,7 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case TavernQuestionMsg:
 		if msg.Err != nil {
-			m.feedback = fmt.Sprintf("Error fetching tavern: %v", msg.Err)
+			m.feedback = fmt.Sprintf(i18n.T("error_fetching_questions"), msg.Err)
 			m.showFeedback = true
 			return m, nil
 		}
@@ -127,12 +129,12 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TavernEvalMsg:
 		if msg.Err != nil {
-			m.feedback = "Evaluation failed; defaulted to Normal."
+			m.feedback = i18n.T("tavern_eval_default_fail")
 			m.evaluations = make([]services.TavernEvaluation, 5)
 			for i := range m.evaluations {
 				m.evaluations[i] = services.TavernEvaluation{
 					Outcome: "normal",
-					Reason:  "Evaluation failed — defaulted to normal",
+					Reason:  i18n.T("tavern_eval_default_fail"),
 				}
 			}
 		} else {
@@ -155,7 +157,7 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		updatedStats, summary, _ := RunTavernSession(context.Background(), m.playerStats, outcomes)
 		m.playerStats = updatedStats
-		m.feedback = fmt.Sprintf("Tavern finished: Exp +%d, Gold +%d. Correct: %d", summary.ExpDelta, summary.GoldDelta, summary.Correct)
+		m.feedback = fmt.Sprintf(i18n.T("tavern_finished_format"), summary.ExpDelta, summary.GoldDelta, summary.Correct)
 		m.showFeedback = true
 		return m, nil
 
@@ -197,13 +199,13 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m TavernModel) View() string {
 	if m.quitting {
-		return "Exiting...\n"
+		return i18n.T("tavern_exiting") + "\n"
 	}
 	header := components.Header(m.playerStats, true, 0)
 
 	var content string
 	if len(m.turns) == 0 {
-		content = "Fetching tavern...\n"
+		content = i18n.FetchingFor("tavern") + "\n"
 		if m.showFeedback {
 			content += m.feedback
 		}
@@ -212,15 +214,15 @@ func (m TavernModel) View() string {
 			content += fmt.Sprintf("%s\n\n", m.npcOpening)
 		}
 		if m.currentTurn < len(m.turns) {
-			content += fmt.Sprintf("NPC (%s): %s\n\n", m.npcName, m.turns[m.currentTurn].NPCReply)
-			content += fmt.Sprintf("Your turn (%d/%d):\n%s\n", m.currentTurn+1, len(m.turns), m.input.View())
+			content += fmt.Sprintf(i18n.T("tavern_npc_line"), m.npcName, m.turns[m.currentTurn].NPCReply) + "\n\n"
+			content += fmt.Sprintf(i18n.T("tavern_player_turn"), m.currentTurn+1, len(m.turns), m.input.View())
 		} else {
-			content += "Evaluations:\n"
+			content += i18n.T("tavern_evaluations") + "\n"
 			for i, ev := range m.evaluations {
-				content += fmt.Sprintf("Turn %d: %s — %s\n", i+1, ev.Outcome, ev.Reason)
+				content += fmt.Sprintf(i18n.T("tavern_eval_line"), i+1, ev.Outcome, ev.Reason)
 			}
 			content += "\n" + m.feedback + "\n"
-			content += "\nPress Enter to return to Town."
+			content += i18n.T("press_enter_return")
 		}
 
 		if m.showFeedback {
