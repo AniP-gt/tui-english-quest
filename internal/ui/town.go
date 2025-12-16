@@ -8,24 +8,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
 
 var (
-	townMenu = []string{
-		"⚔  Vocabulary Battle",
-		"🏰 Grammar Dungeon",
-		"🍺 Conversation Tavern",
-		"🪄 Spelling Challenge",
-		"🔊 Listening Cave",
-		"🎒 Equipment",
-		"🧠 AI Analysis",
-		"📖 History",
-		"🎒 Status",
-		"⚙  Settings",
-	}
-
 	townMenuStyle     = lipgloss.NewStyle().Padding(1, 0)
 	townItemStyle     = lipgloss.NewStyle().PaddingLeft(2)
 	townCursorStyle   = lipgloss.NewStyle().Foreground(components.ColorAccent) // Pink
@@ -34,10 +22,25 @@ var (
 	menuSelectedStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Width(25).Align(lipgloss.Center).Background(components.ColorPrimary).Foreground(components.ColorBoxDark)
 )
 
+func townMenuLabels() []string {
+	return []string{
+		i18n.MenuLabel("town_menu_vocab_battle"),
+		i18n.MenuLabel("town_menu_grammar_dungeon"),
+		i18n.MenuLabel("town_menu_conversation_tavern"),
+		i18n.MenuLabel("town_menu_spelling_challenge"),
+		i18n.MenuLabel("town_menu_listening_cave"),
+		i18n.MenuLabel("town_menu_equipment"),
+		i18n.MenuLabel("town_menu_ai_analysis"),
+		i18n.MenuLabel("town_menu_history"),
+		i18n.MenuLabel("town_menu_status"),
+		i18n.MenuLabel("town_menu_settings"),
+	}
+}
+
 // TownModel handles the town/home screen.
 type TownModel struct {
 	playerStats game.Stats
-	menu        []string
+	menuKeys    []string
 	cursor      int
 	aiAdvice    services.WeaknessReport // Placeholder for AI advice
 }
@@ -50,14 +53,25 @@ func NewTownModel(stats game.Stats, gc *services.GeminiClient) TownModel {
 	aiReport, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, 200) // Use player name as ID, limit 200
 	if err != nil {
 		aiReport = services.WeaknessReport{
-			Recommendation: fmt.Sprintf("Error getting AI advice: %v", err),
+			Recommendation: fmt.Sprintf(i18n.T("error_ai_advice"), err),
 		}
 	}
 	return TownModel{
 		playerStats: stats,
-		menu:        townMenu,
-		cursor:      0,
-		aiAdvice:    aiReport,
+		menuKeys: []string{
+			"town_menu_vocab_battle",
+			"town_menu_grammar_dungeon",
+			"town_menu_conversation_tavern",
+			"town_menu_spelling_challenge",
+			"town_menu_listening_cave",
+			"town_menu_equipment",
+			"town_menu_ai_analysis",
+			"town_menu_history",
+			"town_menu_status",
+			"town_menu_settings",
+		},
+		cursor:   0,
+		aiAdvice: aiReport,
 	}
 }
 
@@ -83,30 +97,30 @@ func (m TownModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			if m.cursor < len(m.menu)-1 {
+			if m.cursor < len(m.menuKeys)-1 {
 				m.cursor++
 			}
 		case "enter":
-			switch m.menu[m.cursor] {
-			case "⚔  Vocabulary Battle": // Handle Vocabulary Battle selection
+			switch m.cursor {
+			case 0:
 				return m, func() tea.Msg { return TownToBattleMsg{} }
-			case "🏰 Grammar Dungeon": // Handle Grammar Dungeon selection
+			case 1:
 				return m, func() tea.Msg { return TownToDungeonMsg{} }
-			case "🍺 Conversation Tavern":
+			case 2:
 				return m, func() tea.Msg { return TownToTavernMsg{} }
-			case "🪄 Spelling Challenge":
+			case 3:
 				return m, func() tea.Msg { return TownToSpellingMsg{} }
-			case "🔊 Listening Cave":
+			case 4:
 				return m, func() tea.Msg { return TownToListeningMsg{} }
-			case "🎒 Equipment":
+			case 5:
 				return m, func() tea.Msg { return TownToEquipmentMsg{} }
-			case "🧠 AI Analysis":
+			case 6:
 				return m, func() tea.Msg { return TownToAnalysisMsg{} }
-			case "📖 History":
+			case 7:
 				return m, func() tea.Msg { return TownToHistoryMsg{} }
-			case "🎒 Status":
+			case 8:
 				return m, func() tea.Msg { return TownToStatusMsg{} }
-			case "⚙  Settings":
+			case 9:
 				return m, func() tea.Msg { return TownToSettingsMsg{} }
 			default:
 				return m, func() tea.Msg { return TownToRootMsg{} }
@@ -123,13 +137,17 @@ func (m TownModel) View() string {
 	header := components.Header(s, true, 0)
 
 	// Render menu using shared Menu component
-	menuBody := "Where do you want to go?\n\n"
-	menuBody += components.Menu(m.menu, m.cursor, 2, 0)
+	menuBody := i18n.T("town_menu_prompt") + "\n\n"
+	// Build labels from keys each render
+	labels := make([]string, len(m.menuKeys))
+	for i, k := range m.menuKeys {
+		labels[i] = i18n.T(k)
+	}
+	menuBody += components.Menu(labels, m.cursor, 2, 0)
 
-	advice := fmt.Sprintf("\nTip / AI Advice\n  Weak points: %s\n  Recommendation: %s",
-		strings.Join(m.aiAdvice.WeakPoints, ", "), m.aiAdvice.Recommendation)
+	advice := fmt.Sprintf(i18n.T("town_ai_advice_format"), strings.Join(m.aiAdvice.WeakPoints, ", "), m.aiAdvice.Recommendation)
 
-	footer := components.Footer("[j/k] Move  [Enter] Select  [q] Quit", 0)
+	footer := components.Footer(i18n.T("footer_town"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

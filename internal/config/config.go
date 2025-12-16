@@ -10,13 +10,13 @@ import (
 
 // Config holds user preferences persisted on disk.
 type Config struct {
-	LangPref string `json:"lang_pref"` // "en"/"ja"/"both"
+	LangPref string `json:"lang_pref"` // "en"/"ja" ("both" removed)
 	ApiKey   string `json:"api_key"`
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
-	return Config{LangPref: "both", ApiKey: ""}
+	return Config{LangPref: "en", ApiKey: ""}
 }
 
 // ConfigPath returns the platform-appropriate path for the config file.
@@ -58,7 +58,7 @@ func LoadConfig() (Config, error) {
 		return DefaultConfig(), err
 	}
 	if c.LangPref == "" {
-		c.LangPref = "both"
+		c.LangPref = "en"
 	}
 	return c, nil
 }

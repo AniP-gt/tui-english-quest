@@ -60,9 +60,11 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 	// The genai.GenerativeModel does not have a Close() method, so we don't defer it here.
 
 	// Read user language preference from config and build language directive
-	langPref := "both"
+	langPref := "en"
 	if cfg, err := config.LoadConfig(); err == nil {
-		langPref = cfg.LangPref
+		if cfg.LangPref == "ja" {
+			langPref = "ja"
+		}
 	}
 
 	prompt := fmt.Sprintf("Generate 5 *new and diverse* %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", mode, mode)
@@ -70,10 +72,8 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 	// Add language instruction depending on preference
 	if langPref == "ja" {
 		prompt = "Please write the problem text in Japanese, but provide answers/options in English. Return only JSON.\n\n" + prompt
-	} else if langPref == "en" {
-		prompt = "Please write the problem text and answers in English. Return only JSON.\n\n" + prompt
 	} else {
-		prompt = "Please write the problem text in Japanese and English where appropriate (problem in Japanese, answers in English). Return only JSON.\n\n" + prompt
+		prompt = "Please write the problem text and answers in English. Return only JSON.\n\n" + prompt
 	}
 
 	switch mode {
@@ -401,7 +401,7 @@ type batchEvalEnvelope struct {
 }
 
 // BatchEvaluateTavern evaluates 5 turns in one request.
-// langPref: "en", "ja", or "both"
+// langPref: "en" or "ja"
 func (gc *GeminiClient) BatchEvaluateTavern(ctx context.Context, rubric []string, npcOpening string, npcReplies []TavernTurn, playerUtterances []string, langPref string) ([]TavernEvaluation, error) {
 	if len(npcReplies) != 5 || len(playerUtterances) != 5 {
 		return nil, fmt.Errorf("expected 5 npcReplies and 5 playerUtterances")
@@ -493,7 +493,7 @@ func buildBatchEvalPrompt(rubric []string, npcOpening string, npcReplies []Taver
 	} else if langPref == "en" {
 		b.WriteString("Please return reasons in English.\n")
 	} else {
-		b.WriteString("Please return reasons in both English and Japanese (e.g. 'EN reason.／JP reason.').\n")
+		b.WriteString("Please return reasons in English (brief).\n")
 	}
 
 	b.WriteString("Make sure the JSON is valid and contains exactly 5 evaluations in order.\n")
