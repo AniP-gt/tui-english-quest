@@ -31,6 +31,9 @@ type SettingsModel struct {
 	confirmCursor   int      // Cursor for the exit confirmation menu
 	confirmMenu     []string // Menu for exit confirmation
 	langPref        string   // "en"/"ja"
+	// Session settings
+	questionsPerSession int
+	questionsOptions    []int
 }
 
 // NewSettingsModel creates a new SettingsModel.
@@ -49,16 +52,27 @@ func NewSettingsModel(stats game.Stats) SettingsModel {
 	}
 	ti.SetValue(currentAPIKey) // Set initial value of text input
 
+	questionsOpts := []int{5, 10, 20, 30, 50}
+	qps := cfg.QuestionsPerSession
+	if qps == 0 {
+		qps = 5
+	}
+
+	// build initial menu including a QuestionsPerSession display
+	menu := []string{i18n.T("settings_menu_api"), fmt.Sprintf(i18n.T("settings_menu_lang_current"), strings.ToUpper(cfg.LangPref)), fmt.Sprintf(i18n.T("settings_menu_questions_current"), qps), i18n.T("settings_save")}
+
 	return SettingsModel{
-		playerStats:     stats,
-		apiKeyInput:     ti,
-		cursor:          0,
-		menu:            []string{i18n.T("settings_menu_api"), fmt.Sprintf(i18n.T("settings_menu_lang_current"), strings.ToUpper(cfg.LangPref)), i18n.T("settings_save")},
-		originalAPIKey:  currentAPIKey,
-		showConfirmExit: false,
-		confirmCursor:   0,
-		confirmMenu:     []string{i18n.T("confirm_save_opt1"), i18n.T("confirm_save_opt2"), i18n.T("confirm_save_opt3")},
-		langPref:        cfg.LangPref,
+		playerStats:         stats,
+		apiKeyInput:         ti,
+		cursor:              0,
+		menu:                menu,
+		originalAPIKey:      currentAPIKey,
+		showConfirmExit:     false,
+		confirmCursor:       0,
+		confirmMenu:         []string{i18n.T("confirm_save_opt1"), i18n.T("confirm_save_opt2"), i18n.T("confirm_save_opt3")},
+		langPref:            cfg.LangPref,
+		questionsPerSession: qps,
+		questionsOptions:    questionsOpts,
 	}
 }
 
@@ -153,9 +167,24 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.menu[1] = fmt.Sprintf(i18n.T("settings_menu_lang_current"), strings.ToUpper(m.langPref))
 
 			case 2:
+				// Cycle QuestionsPerSession option
+				// find current index
+				curIdx := 0
+				for i, v := range m.questionsOptions {
+					if v == m.questionsPerSession {
+						curIdx = i
+						break
+					}
+				}
+				// advance
+				curIdx = (curIdx + 1) % len(m.questionsOptions)
+				m.questionsPerSession = m.questionsOptions[curIdx]
+				m.menu[2] = fmt.Sprintf(i18n.T("settings_menu_questions_current"), m.questionsPerSession)
+
+			case 3:
 				// Save and exit
 				apiKey := m.apiKeyInput.Value()
-				cfg := config.Config{LangPref: m.langPref, ApiKey: apiKey}
+				cfg := config.Config{LangPref: m.langPref, ApiKey: apiKey, QuestionsPerSession: m.questionsPerSession}
 				if err := config.SaveConfig(cfg); err != nil {
 					// handle error
 				}

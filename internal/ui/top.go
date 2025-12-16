@@ -457,9 +457,9 @@ func runAllModes() (game.Stats, []game.SessionSummary) { // Changed return type 
 
 	if payload, err := services.FetchAndValidate(ctx, services.ModeListening); err == nil {
 		_ = payload
-		ans := []game.ListeningAnswer{{true}, {true}, {false}, {true}, {true}} // Changed to game.ListeningAnswer
-		var sum game.SessionSummary                                            // Changed to game.SessionSummary
-		stats, sum, _ = game.RunListeningSession(ctx, stats, ans)              // Changed to game.RunListeningSession
+		ans := []game.ListeningAnswer{{Correct: true}, {Correct: true}, {Correct: false}, {Correct: true}, {Correct: true}} // Changed to game.ListeningAnswer
+		var sum game.SessionSummary                                                                                         // Changed to game.SessionSummary
+		stats, sum, _ = game.RunListeningSession(ctx, stats, ans)                                                           // Changed to game.RunListeningSession
 		summaries = append(summaries, sum)
 	} else {
 		summaries = append(summaries, game.SessionSummary{Mode: services.ModeListening, Note: err.Error()}) // Changed to game.SessionSummary

@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
 	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
@@ -92,11 +93,20 @@ func (m TavernModel) fetchTavernCmd() tea.Cmd {
 		if err := json.Unmarshal(payload.Content, &env); err != nil {
 			return TavernQuestionMsg{Err: fmt.Errorf("failed to parse tavern payload: %w", err)}
 		}
+		cfg, _ := config.LoadConfig()
+		N := cfg.QuestionsPerSession
+		if N <= 0 {
+			N = 5
+		}
+		turns := env.Turns
+		if len(turns) > N {
+			turns = turns[:N]
+		}
 		return TavernQuestionMsg{
 			NPCName:          env.NPCName,
 			NPCOpening:       env.NPCOpening,
 			EvaluationRubric: env.EvaluationRubric,
-			Turns:            env.Turns,
+			Turns:            turns,
 			Err:              nil,
 		}
 	}

@@ -1,8 +1,10 @@
 package game
 
+import "math"
+
 // ApplyDamage reduces HP by given value and clamps at zero.
 func ApplyDamage(s Stats, dmg int) Stats {
-	effectiveDmg := int(float64(dmg) * (1 - s.DamageReduction))
+	effectiveDmg := int(math.Round(float64(dmg) * (1 - s.DamageReduction)))
 	if effectiveDmg < 0 {
 		effectiveDmg = 0
 	}

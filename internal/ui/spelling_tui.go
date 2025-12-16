@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
 	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
@@ -89,7 +90,16 @@ func (m SpellingModel) fetchQuestionsCmd() tea.Cmd {
 		if err := json.Unmarshal(payload.Content, &env); err != nil {
 			return SpellingQuestionMsg{Err: fmt.Errorf("failed to parse spelling prompts: %w", err)}
 		}
-		return SpellingQuestionMsg{Prompts: env.Prompts}
+		cfg, _ := config.LoadConfig()
+		N := cfg.QuestionsPerSession
+		if N <= 0 {
+			N = 5
+		}
+		ps := env.Prompts
+		if len(ps) > N {
+			ps = ps[:N]
+		}
+		return SpellingQuestionMsg{Prompts: ps}
 	}
 }
 
@@ -156,6 +166,19 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.feedback = fmt.Sprintf(i18n.T("spelling_incorrect"), current.CorrectSpelling)
 				m.isCorrect = false
 				m.answers = append(m.answers, game.SpellingFail)
+				// Immediate HP update for UX
+				m.playerStats.MaxHP = game.MaxHPForLevel(m.playerStats.Level)
+				M := game.AllowedMisses(len(m.prompts))
+				dmg := game.DamagePerMiss(m.playerStats.MaxHP, M)
+				m.playerStats = game.ApplyDamage(m.playerStats, dmg)
+				m.playerStats = game.ResetCombo(m.playerStats)
+			}
+			// Auto-finalize when we've answered all prompts
+			if len(m.answers) == len(m.prompts) {
+				updatedStats, _, _ := game.RunSpellingSession(context.Background(), m.playerStats, m.answers)
+				m.playerStats = updatedStats
+				m.showFeedback = true
+				return m, func() tea.Msg { return SpellingToTownMsg{} }
 			}
 			m.showFeedback = true
 			return m, nil
@@ -182,6 +205,12 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.feedback = fmt.Sprintf(i18n.T("spelling_incorrect"), current.CorrectSpelling)
 				m.isCorrect = false
 				m.answers = append(m.answers, game.SpellingFail)
+				// Immediate HP update for UX
+				m.playerStats.MaxHP = game.MaxHPForLevel(m.playerStats.Level)
+				M := game.AllowedMisses(len(m.prompts))
+				dmg := game.DamagePerMiss(m.playerStats.MaxHP, M)
+				m.playerStats = game.ApplyDamage(m.playerStats, dmg)
+				m.playerStats = game.ResetCombo(m.playerStats)
 			}
 			m.showFeedback = true
 			return m, nil
@@ -211,6 +240,22 @@ func (m SpellingModel) View() string {
 			content += spellingFeedbackStyle.Render(m.feedback)
 		}
 	} else {
+		// Guard: currentQuestion may equal len(prompts) transiently after Update triggers session finalize
+		if m.currentQuestion >= len(m.prompts) {
+			content := spellingTitleStyle.Render(i18n.T("session_complete")) + "\n\n"
+			if m.showFeedback {
+				content += spellingFeedbackStyle.Render(m.feedback) + "\n"
+			}
+			footer := components.Footer(i18n.T("footer_spelling"), 0)
+			return lipgloss.JoinVertical(lipgloss.Left,
+				header,
+				lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
+				spellingStyle.Render(lipgloss.NewStyle().Width(lipgloss.Width(header)-spellingStyle.GetHorizontalPadding()).Render(content)),
+				lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""),
+				footer,
+			)
+		}
+
 		current := m.prompts[m.currentQuestion]
 		questionText := spellingQuestionStyle.Render(fmt.Sprintf(i18n.T("spelling_question_progress"), m.currentQuestion+1, len(m.prompts), current.JAHint))
 

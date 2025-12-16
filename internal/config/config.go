@@ -10,13 +10,14 @@ import (
 
 // Config holds user preferences persisted on disk.
 type Config struct {
-	LangPref string `json:"lang_pref"` // "en"/"ja" ("both" removed)
-	ApiKey   string `json:"api_key"`
+	LangPref            string `json:"lang_pref"` // "en"/"ja" ("both" removed)
+	ApiKey              string `json:"api_key"`
+	QuestionsPerSession int    `json:"questions_per_session"`
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
-	return Config{LangPref: "en", ApiKey: ""}
+	return Config{LangPref: "en", ApiKey: "", QuestionsPerSession: 5}
 }
 
 // ConfigPath returns the platform-appropriate path for the config file.
