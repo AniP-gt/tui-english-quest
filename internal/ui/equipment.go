@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/ui/components"
 )
 
@@ -92,10 +93,10 @@ func (m EquipmentModel) View() string {
 	header := components.Header(s, true, 0)
 
 	var b strings.Builder
-	b.WriteString(equipmentTitleStyle.Render("Equipment\n"))
+	b.WriteString(equipmentTitleStyle.Render(i18n.T("equipment_title") + "\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
-	b.WriteString("Select a slot and press Enter to change equipment.\n\n")
+	b.WriteString(i18n.T("equipment_prompt") + "\n\n")
 
 	for i, slot := range m.slots {
 		cursor := "  "
@@ -108,7 +109,7 @@ func (m EquipmentModel) View() string {
 		b.WriteString(line)
 	}
 
-	footer := components.Footer("[j/k] Navigate  [Enter] Change  [Esc] Back to Town", 0)
+	footer := components.Footer(i18n.T("footer_equipment"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

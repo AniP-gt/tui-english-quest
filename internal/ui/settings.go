@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/ui/components"
 )
 
@@ -29,7 +30,7 @@ type SettingsModel struct {
 	showConfirmExit bool     // Whether to show the exit confirmation
 	confirmCursor   int      // Cursor for the exit confirmation menu
 	confirmMenu     []string // Menu for exit confirmation
-	langPref        string   // "en"/"ja"/"both"
+	langPref        string   // "en"/"ja"
 }
 
 // NewSettingsModel creates a new SettingsModel.
@@ -37,7 +38,7 @@ func NewSettingsModel(stats game.Stats) SettingsModel {
 	cfg, _ := config.LoadConfig()
 
 	ti := textinput.New()
-	ti.Placeholder = "ジェミニAPIキーを入力"
+	ti.Placeholder = i18n.T("settings_api_placeholder")
 	ti.CharLimit = 100
 	ti.Width = 50
 
@@ -52,11 +53,11 @@ func NewSettingsModel(stats game.Stats) SettingsModel {
 		playerStats:     stats,
 		apiKeyInput:     ti,
 		cursor:          0,
-		menu:            []string{"ジェミニAPIキー設定", fmt.Sprintf("言語設定 (現在: %s)", strings.ToUpper(cfg.LangPref)), "保存して終了"},
+		menu:            []string{i18n.T("settings_menu_api"), fmt.Sprintf(i18n.T("settings_menu_lang_current"), strings.ToUpper(cfg.LangPref)), i18n.T("settings_save")},
 		originalAPIKey:  currentAPIKey,
 		showConfirmExit: false,
 		confirmCursor:   0,
-		confirmMenu:     []string{"変更を保存", "変更を破棄", "キャンセル"},
+		confirmMenu:     []string{i18n.T("confirm_save_opt1"), i18n.T("confirm_save_opt2"), i18n.T("confirm_save_opt3")},
 		langPref:        cfg.LangPref,
 	}
 }
@@ -83,7 +84,7 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				switch m.confirmMenu[m.confirmCursor] {
-				case "変更を保存":
+				case i18n.T("confirm_save_opt1"):
 					// Save logic: write API key and config
 					apiKey := m.apiKeyInput.Value()
 					cfg := config.Config{LangPref: m.langPref, ApiKey: apiKey}
@@ -94,10 +95,13 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if apiKey != "" {
 						_ = os.Setenv("GEMINI_API_KEY", apiKey)
 					}
+					// apply language immediately for current process
+					i18n.SetLang(m.langPref)
 					return m, func() tea.Msg { return SettingsToTownMsg{} }
-				case "変更を破棄":
+
+				case i18n.T("confirm_save_opt2"):
 					return m, func() tea.Msg { return SettingsToTownMsg{} }
-				case "キャンセル":
+				case i18n.T("confirm_save_opt3"):
 					m.showConfirmExit = false
 					m.confirmCursor = 0 // Reset cursor
 					return m, nil
@@ -139,17 +143,15 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Focus API key input
 				m.apiKeyInput.Focus()
 			case 1:
-				// Cycle language preference: en -> ja -> both -> en
-				switch m.langPref {
-				case "en":
+				// Toggle language preference: en <-> ja
+				if m.langPref == "en" {
 					m.langPref = "ja"
-				case "ja":
-					m.langPref = "both"
-				default:
+				} else {
 					m.langPref = "en"
 				}
 				// update menu label to show current
-				m.menu[1] = fmt.Sprintf("言語設定 (現在: %s)", strings.ToUpper(m.langPref))
+				m.menu[1] = fmt.Sprintf(i18n.T("settings_menu_lang_current"), strings.ToUpper(m.langPref))
+
 			case 2:
 				// Save and exit
 				apiKey := m.apiKeyInput.Value()
@@ -160,7 +162,10 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if apiKey != "" {
 					_ = os.Setenv("GEMINI_API_KEY", apiKey)
 				}
+				// apply language immediately
+				i18n.SetLang(m.langPref)
 				return m, func() tea.Msg { return SettingsToTownMsg{} }
+
 			}
 		}
 	}
@@ -177,11 +182,11 @@ func (m SettingsModel) View() string {
 	header := components.Header(s, true, 0)
 
 	var b strings.Builder
-	b.WriteString(settingsTitleStyle.Render("設定\n"))
+	b.WriteString(settingsTitleStyle.Render(i18n.T("settings_title") + "\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
 	if m.showConfirmExit {
-		b.WriteString("\nAPIキーが変更されました。保存しますか?\n\n")
+		b.WriteString("\n" + i18n.T("confirm_save") + "\n\n")
 		for i, item := range m.confirmMenu {
 			cursor := "  "
 			if i == m.confirmCursor {
@@ -189,7 +194,7 @@ func (m SettingsModel) View() string {
 			}
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, item))
 		}
-		footer := components.Footer("[j/k] Navigate  [Enter] Select", 0)
+		footer := components.Footer(i18n.T("footer_settings_confirm"), 0)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			header,
 			lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
@@ -199,7 +204,7 @@ func (m SettingsModel) View() string {
 		)
 	}
 
-	b.WriteString("アプリケーション設定:\n\n")
+	b.WriteString(i18n.T("settings_prompt") + "\n\n")
 
 	for i, item := range m.menu {
 		cursor := "  "
@@ -208,11 +213,11 @@ func (m SettingsModel) View() string {
 		}
 		b.WriteString(fmt.Sprintf("%s%s\n", cursor, item))
 		if i == 0 {
-			b.WriteString(settingsItemStyle.Render(fmt.Sprintf("APIキー: %s\n", m.apiKeyInput.View())))
+			b.WriteString(settingsItemStyle.Render(fmt.Sprintf("%s: %s\n", i18n.T("api_label"), m.apiKeyInput.View())))
 		}
 	}
 
-	footer := components.Footer("[j/k] Navigate  [Enter] Select  [Esc] Back to Town", 0)
+	footer := components.Footer(i18n.T("footer_settings_main"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

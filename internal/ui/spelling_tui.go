@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -52,7 +53,7 @@ type SpellingQuestionMsg struct {
 // NewSpellingModel creates a new SpellingModel.
 func NewSpellingModel(stats game.Stats, gc *services.GeminiClient) SpellingModel {
 	ti := textinput.New()
-	ti.Placeholder = "Type the spelling..."
+	ti.Placeholder = i18n.T("spelling_placeholder")
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 50
@@ -98,7 +99,7 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case SpellingQuestionMsg:
 		if msg.Err != nil {
-			m.feedback = fmt.Sprintf("Error fetching questions: %v", msg.Err)
+			m.feedback = fmt.Sprintf(i18n.T("error_fetching_questions"), msg.Err)
 			m.showFeedback = true
 			return m, nil
 		}
@@ -144,15 +145,15 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			current := m.prompts[m.currentQuestion]
 			user := strings.TrimSpace(m.answerInput.Value())
 			if strings.EqualFold(user, current.CorrectSpelling) {
-				m.feedback = "Correct!"
+				m.feedback = i18n.T("correct_feedback")
 				m.isCorrect = true
 				m.answers = append(m.answers, game.SpellingPerfect)
 			} else if isNear(user, current.CorrectSpelling) {
-				m.feedback = fmt.Sprintf("Almost! The correct spelling is: %s", current.CorrectSpelling)
+				m.feedback = fmt.Sprintf(i18n.T("spelling_almost_correct"), current.CorrectSpelling)
 				m.isCorrect = false
 				m.answers = append(m.answers, game.SpellingNear)
 			} else {
-				m.feedback = fmt.Sprintf("Incorrect. The correct spelling is: %s", current.CorrectSpelling)
+				m.feedback = fmt.Sprintf(i18n.T("spelling_incorrect"), current.CorrectSpelling)
 				m.isCorrect = false
 				m.answers = append(m.answers, game.SpellingFail)
 			}
@@ -170,15 +171,15 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selected := m.mcOptions[idx]
 			current := m.prompts[m.currentQuestion]
 			if strings.EqualFold(selected, current.CorrectSpelling) {
-				m.feedback = "Correct!"
+				m.feedback = i18n.T("correct_feedback")
 				m.isCorrect = true
 				m.answers = append(m.answers, game.SpellingPerfect)
 			} else if isNear(selected, current.CorrectSpelling) {
-				m.feedback = fmt.Sprintf("Almost! The correct spelling is: %s", current.CorrectSpelling)
+				m.feedback = fmt.Sprintf(i18n.T("spelling_almost_correct"), current.CorrectSpelling)
 				m.isCorrect = false
 				m.answers = append(m.answers, game.SpellingNear)
 			} else {
-				m.feedback = fmt.Sprintf("Incorrect. The correct spelling is: %s", current.CorrectSpelling)
+				m.feedback = fmt.Sprintf(i18n.T("spelling_incorrect"), current.CorrectSpelling)
 				m.isCorrect = false
 				m.answers = append(m.answers, game.SpellingFail)
 			}
@@ -197,7 +198,7 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SpellingModel) View() string {
 	if m.quitting {
-		return "Exiting TUI English Quest...\n"
+		return i18n.T("exiting_message") + "\n"
 	}
 
 	s := m.playerStats
@@ -205,13 +206,13 @@ func (m SpellingModel) View() string {
 
 	var content string
 	if len(m.prompts) == 0 {
-		content = "Fetching questions...\n"
+		content = i18n.FetchingFor("spelling") + "\n"
 		if m.showFeedback {
-			content += feedbackStyle.Render(m.feedback)
+			content += spellingFeedbackStyle.Render(m.feedback)
 		}
 	} else {
 		current := m.prompts[m.currentQuestion]
-		questionText := spellingQuestionStyle.Render(fmt.Sprintf("Question %d/%d: %s", m.currentQuestion+1, len(m.prompts), current.JAHint))
+		questionText := spellingQuestionStyle.Render(fmt.Sprintf(i18n.T("spelling_question_progress"), m.currentQuestion+1, len(m.prompts), current.JAHint))
 
 		// Calculate content width based on header width
 		contentWidth := lipgloss.Width(header) - spellingStyle.GetHorizontalPadding()
@@ -231,7 +232,7 @@ func (m SpellingModel) View() string {
 				} else {
 					feedbackText = spellingFeedbackStyle.Render(spellingIncorrectStyle.Render(m.feedback))
 				}
-				feedbackText += "\nPress Enter to continue..."
+				feedbackText += "\n" + i18n.T("press_enter_continue")
 			}
 			content = lipgloss.JoinVertical(lipgloss.Left, questionText, optionsText, inputField, feedbackText)
 		} else {
@@ -244,13 +245,13 @@ func (m SpellingModel) View() string {
 				} else {
 					feedbackText = spellingFeedbackStyle.Render(spellingIncorrectStyle.Render(m.feedback))
 				}
-				feedbackText += "\nPress Enter to continue..."
+				feedbackText += "\n" + i18n.T("press_enter_continue")
 			}
 			content = lipgloss.JoinVertical(lipgloss.Left, questionText, inputField, feedbackText)
 		}
 	}
 
-	footer := components.Footer("[m] Toggle MC  [Enter] Submit  [Esc] Back to Town  [q] Quit", 0)
+	footer := components.Footer(i18n.T("footer_spelling"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,

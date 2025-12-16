@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"tui-english-quest/internal/game"
+	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
 	"tui-english-quest/internal/ui/components"
 )
@@ -45,7 +46,7 @@ type BattleModel struct {
 // NewBattleModel creates a new BattleModel.
 func NewBattleModel(stats game.Stats, gc *services.GeminiClient) BattleModel {
 	ti := textinput.New()
-	ti.Placeholder = "Your answer..."
+	ti.Placeholder = i18n.T("battle_placeholder")
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 50
@@ -99,7 +100,7 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case BattleQuestionMsg:
 		if msg.Err != nil {
-			m.feedback = fmt.Sprintf("Error fetching questions: %v", msg.Err)
+			m.feedback = fmt.Sprintf(i18n.T("error_fetching_questions"), msg.Err)
 			m.showFeedback = true
 			return m, nil
 		}
@@ -135,11 +136,11 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.answers = append(m.answers, game.VocabAnswer{Correct: isCorrect})
 
 			if isCorrect {
-				m.feedback = "Correct!"
+				m.feedback = i18n.T("correct_feedback")
 				m.isCorrect = true
 				// TODO: Update player stats (EXP, Combo, etc.) - will be handled by RunVocabSession
 			} else {
-				m.feedback = fmt.Sprintf("Incorrect. The answer was: %s", currentQ.Options[currentQ.AnswerIndex])
+				m.feedback = fmt.Sprintf(i18n.T("battle_incorrect_answer"), currentQ.Options[currentQ.AnswerIndex])
 				m.isCorrect = false
 				// TODO: Update player stats (HP, Combo reset, etc.) - will be handled by RunVocabSession
 			}
@@ -167,7 +168,7 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m BattleModel) View() string {
 	if m.quitting {
-		return "Exiting TUI English Quest...\n"
+		return i18n.T("exiting_message") + "\n"
 	}
 
 	s := m.playerStats
@@ -175,13 +176,13 @@ func (m BattleModel) View() string {
 
 	var content string
 	if len(m.questions) == 0 {
-		content = "Fetching questions...\n"
+		content = i18n.FetchingFor("battle") + "\n"
 		if m.showFeedback { // Display error if fetching failed
 			content += feedbackStyle.Render(m.feedback)
 		}
 	} else {
 		currentQ := m.questions[m.currentQuestion]
-		questionText := questionStyle.Render(fmt.Sprintf("Question %d/%d: What is the meaning of '%s'?", m.currentQuestion+1, len(m.questions), currentQ.Word))
+		questionText := questionStyle.Render(fmt.Sprintf(i18n.T("battle_question_format"), m.currentQuestion+1, len(m.questions), currentQ.Word))
 
 		// Calculate content width based on header width
 		contentWidth := lipgloss.Width(header) - battleStyle.GetHorizontalPadding()
@@ -201,7 +202,7 @@ func (m BattleModel) View() string {
 			} else {
 				feedbackText = feedbackStyle.Render(incorrectStyle.Render(m.feedback))
 			}
-			feedbackText += "\nPress Enter to continue..."
+			feedbackText += "\n" + i18n.T("press_enter_continue")
 		}
 
 		content = lipgloss.JoinVertical(lipgloss.Left,
@@ -212,7 +213,7 @@ func (m BattleModel) View() string {
 		)
 	}
 
-	footer := components.Footer("[j/k] Move  [Enter] Select/Answer  [Esc] Back to Town  [q/ctrl+c] Quit", 0)
+	footer := components.Footer(i18n.T("footer_battle"), 0)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
