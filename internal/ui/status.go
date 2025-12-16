@@ -49,26 +49,26 @@ func (m StatusModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(statusTitleStyle.Render("Player Status\n"))
-	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
+	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render("") + "\n")
 
 	// Build aligned key-value lines
 	labelWidth := 14
 	lines := ""
-	lines += fmt.Sprintf("%-*s %s\n", labelWidth, "Name:", s.Name)
-	lines += fmt.Sprintf("%-*s %s\n", labelWidth, "Class:", s.Class)
-	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Level:", s.Level)
-	lines += fmt.Sprintf("%-*s %d / %d\n", labelWidth, "Experience:", s.Exp, s.Next)
-	lines += fmt.Sprintf("%-*s %d / %d\n", labelWidth, "HP:", s.HP, s.MaxHP)
-	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Attack:", s.Attack)
-	lines += fmt.Sprintf("%-*s %.1f\n", labelWidth, "Defense:", s.Defense)
-	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Combo:", s.Combo)
-	lines += fmt.Sprintf("%-*s %d days\n", labelWidth, "Streak:", s.Streak)
-	lines += fmt.Sprintf("%-*s %d\n", labelWidth, "Gold:", s.Gold)
+	lines += components.RenderKeyValue("Name:", s.Name, labelWidth) + "\n"
+	lines += components.RenderKeyValue("Class:", s.Class, labelWidth) + "\n"
+	lines += components.RenderKeyValue("Level:", fmt.Sprintf("%d", s.Level), labelWidth) + "\n"
+	lines += components.RenderKeyValue("Experience:", fmt.Sprintf("%d / %d", s.Exp, s.Next), labelWidth) + "\n"
+	lines += components.RenderKeyValue("HP:", fmt.Sprintf("%d / %d", s.HP, s.MaxHP), labelWidth) + "\n"
+	lines += components.RenderKeyValue("Attack:", fmt.Sprintf("%d", s.Attack), labelWidth) + "\n"
+	lines += components.RenderKeyValue("Defense:", fmt.Sprintf("%.1f", s.Defense), labelWidth) + "\n"
+	lines += components.RenderKeyValue("Combo:", fmt.Sprintf("%d", s.Combo), labelWidth) + "\n"
+	lines += components.RenderKeyValue("Streak:", fmt.Sprintf("%d days", s.Streak), labelWidth) + "\n"
+	lines += components.RenderKeyValue("Gold:", fmt.Sprintf("%d", s.Gold), labelWidth) + "\n"
 
 	// Badges or achievements (placeholder)
-	lines += "\nAchievements:\n"
-	lines += "  - First Victory\n"
-	lines += "  - Combo Master\n"
+	lines += "\nAchievements:\n\n"
+	achievements := []string{"First Victory", "Combo Master"}
+	lines += components.RenderBulletList(achievements, 2)
 
 	b.WriteString(lines)
 

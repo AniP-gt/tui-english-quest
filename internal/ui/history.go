@@ -72,21 +72,24 @@ func (m HistoryModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(historyTitleStyle.Render(i18n.T("history_title") + "\n"))
-	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
+	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render("") + "\n")
 
 	if len(m.sessions) == 0 {
 		b.WriteString(historyItemStyle.Render(i18n.T("history_no_sessions") + "\n"))
 	} else {
 		// Header
-		b.WriteString(historyHeaderStyle.Render(fmt.Sprintf("%-12s %-10s %-8s %-6s %-6s %-8s\n", "Date", "Mode", "Score", "EXP", "Gold", "HP Δ")))
+		headerCols := []string{"", "Date", "Mode", "Score", "EXP", "Gold", "HP Δ"}
+		headerWidths := []int{2, 12, 10, 8, 7, 7, 8}
+		b.WriteString(historyHeaderStyle.Render(components.RenderAlignedRow(headerCols, headerWidths) + "\n"))
 		b.WriteString(strings.Repeat("-", 60) + "\n")
 
 		// Sessions
 		for i, session := range m.sessions {
-			cursor := "  "
+			cursor := " "
 			if i == m.cursor {
-				cursor = "> "
+				cursor = ">"
 			}
+
 			date := session.EndedAt.Format("01/02 15:04")
 			mode := session.Mode
 			score := fmt.Sprintf("%d/5", session.CorrectCount)
@@ -99,8 +102,9 @@ func (m HistoryModel) View() string {
 			if session.LeveledUp {
 				exp += " ↑"
 			}
-			line := fmt.Sprintf("%s%-12s %-10s %-8s %-6s %-6s %-8s\n", cursor, date, mode, score, exp, gold, hp)
-			b.WriteString(line)
+
+			rowCols := []string{cursor, date, mode, score, exp, gold, hp}
+			b.WriteString(components.RenderAlignedRow(rowCols, headerWidths) + "\n")
 		}
 	}
 

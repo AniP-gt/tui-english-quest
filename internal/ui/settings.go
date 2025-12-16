@@ -183,7 +183,7 @@ func (m SettingsModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(settingsTitleStyle.Render(i18n.T("settings_title") + "\n"))
-	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
+	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render("") + "\n")
 
 	if m.showConfirmExit {
 		b.WriteString("\n" + i18n.T("confirm_save") + "\n\n")
@@ -211,9 +211,10 @@ func (m SettingsModel) View() string {
 		if i == m.cursor {
 			cursor = "> "
 		}
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, item))
-		if i == 0 {
-			b.WriteString(settingsItemStyle.Render(fmt.Sprintf("%s: %s\n", i18n.T("api_label"), m.apiKeyInput.View())))
+		// Render each menu item using settingsItemStyle for consistent padding
+		b.WriteString(settingsItemStyle.Render(fmt.Sprintf("%s%s", cursor, item)) + "\n")
+		if i == 0 { // This is for API key input
+			b.WriteString(settingsItemStyle.Render(fmt.Sprintf("%s: %s", i18n.T("api_label"), m.apiKeyInput.View())) + "\n")
 		}
 	}
 
