@@ -128,8 +128,8 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "esc":
 			return m, func() tea.Msg { return SpellingToTownMsg{} }
-		case "m":
-			// Toggle multiple-choice for current prompt
+		case "tab":
+			// Toggle multiple-choice for current prompt without inserting tab chars
 			if !m.isMultipleChoice {
 				m.isMultipleChoice = true
 				m.mcOptions = generateMCOptions(m.prompts[m.currentQuestion].CorrectSpelling)
