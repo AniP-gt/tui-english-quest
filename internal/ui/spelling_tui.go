@@ -128,8 +128,8 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "esc":
 			return m, func() tea.Msg { return SpellingToTownMsg{} }
-		case "m":
-			// Toggle multiple-choice for current prompt
+		case "tab":
+			// Toggle multiple-choice for current prompt without inserting tab chars
 			if !m.isMultipleChoice {
 				m.isMultipleChoice = true
 				m.mcOptions = generateMCOptions(m.prompts[m.currentQuestion].CorrectSpelling)
@@ -150,6 +150,7 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.playerStats = updatedStats
 					return m, func() tea.Msg { return SpellingToTownMsg{} }
 				}
+				m = m.refreshMCOptionsForCurrentPrompt()
 				return m, nil
 			}
 			// Process answer for fill-in
@@ -394,6 +395,15 @@ func replaceOne(s string) string {
 	// replace with nearby character: a simple shift
 	r[i] = r[i] + 1
 	return string(r)
+}
+
+func (m SpellingModel) refreshMCOptionsForCurrentPrompt() SpellingModel {
+	if !m.isMultipleChoice || m.currentQuestion >= len(m.prompts) {
+		m.mcOptions = nil
+		return m
+	}
+	m.mcOptions = generateMCOptions(m.prompts[m.currentQuestion].CorrectSpelling)
+	return m
 }
 
 // isNear returns true for small edit differences (Levenshtein <=1)
