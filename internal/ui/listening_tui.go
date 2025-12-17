@@ -31,6 +31,7 @@ type ListeningModel struct {
 	feedback     string
 	showFeedback bool
 	quitting     bool
+	hpAnimator   HPAnimator
 }
 
 // NewListeningModel creates a new ListeningModel.
@@ -42,6 +43,7 @@ func NewListeningModel(stats game.Stats, gc *services.GeminiClient) ListeningMod
 		currentIndex: 0,
 		selected:     0,
 		answers:      make([]game.ListeningAnswer, 0, 5),
+		hpAnimator:   NewHPAnimator(stats.HP),
 	}
 }
 
@@ -96,6 +98,9 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case hpTickMsg:
+		return m, m.hpAnimator.Tick(m.playerStats.HP)
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -131,8 +136,11 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// end session
 					updatedStats, _, _ := game.RunListeningSession(context.Background(), m.playerStats, m.answers)
 					m.playerStats = updatedStats
+					m.hpAnimator.Sync(m.playerStats.HP)
+					m.showFeedback = true
 					return m, func() tea.Msg { return ListeningToTownMsg{} }
 				}
+
 				// speak next prompt
 				_ = services.Speak(m.items[m.currentIndex].Prompt)
 				return m, nil
@@ -147,22 +155,28 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.answers) == len(m.items) {
 					updatedStats, _, _ := game.RunListeningSession(context.Background(), m.playerStats, m.answers)
 					m.playerStats = updatedStats
+					m.hpAnimator.Sync(m.playerStats.HP)
 					m.showFeedback = true
 					return m, func() tea.Msg { return ListeningToTownMsg{} }
 				}
+
 				if isCorrect {
 					m.feedback = i18n.T("correct_feedback")
 				} else {
 					m.feedback = fmt.Sprintf(i18n.T("incorrect_feedback"), item.Options[item.AnswerIndex])
+					prevHP := m.playerStats.HP
 					// Immediate HP update for UX
 					m.playerStats.MaxHP = game.MaxHPForLevel(m.playerStats.Level)
 					M := game.AllowedMisses(len(m.items))
 					dmg := game.DamagePerMiss(m.playerStats.MaxHP, M)
 					m.playerStats = game.ApplyDamage(m.playerStats, dmg)
 					m.playerStats = game.ResetCombo(m.playerStats)
+					m.showFeedback = true
+					return m, m.hpAnimator.StartAnimation(prevHP, m.playerStats.HP)
 				}
 				m.showFeedback = true
 				return m, nil
+
 			}
 		}
 	}
@@ -174,7 +188,9 @@ func (m ListeningModel) View() string {
 	if m.quitting {
 		return i18n.T("exiting_message") + "\n"
 	}
-	header := components.Header(m.playerStats, true, 0)
+	displayStats := m.playerStats
+	displayStats.HP = m.hpAnimator.Display()
+	header := components.Header(displayStats, true, 0)
 
 	if len(m.items) == 0 {
 		content := i18n.FetchingFor("listening") + "\n"

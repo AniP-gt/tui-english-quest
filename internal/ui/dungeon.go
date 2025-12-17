@@ -39,6 +39,7 @@ type DungeonModel struct {
 	isCorrect       bool
 	showFeedback    bool
 	quitting        bool
+	hpAnimator      HPAnimator
 	answers         []game.GrammarAnswer // To store answers for RunGrammarSession
 }
 
@@ -61,6 +62,7 @@ func NewDungeonModel(stats game.Stats, gc *services.GeminiClient) DungeonModel {
 		isCorrect:       false,
 		showFeedback:    false,
 		quitting:        false,
+		hpAnimator:      NewHPAnimator(stats.HP),
 		answers:         make([]game.GrammarAnswer, 0, 5), // Initialize answers slice
 	}
 }
@@ -114,6 +116,9 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.questions = msg.Questions
 		return m, nil
 
+	case hpTickMsg:
+		return m, m.hpAnimator.Tick(m.playerStats.HP)
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -132,8 +137,10 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// End session, show results
 					updatedStats, _, _ := game.RunGrammarSession(context.Background(), m.playerStats, m.answers)
 					m.playerStats = updatedStats
+					m.hpAnimator.Sync(m.playerStats.HP)
 					return m, func() tea.Msg { return TownToRootMsg{} } // For now, just return to town
 				}
+
 				m.currentQuestion++
 				return m, nil
 			}
@@ -154,6 +161,7 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.answers) == len(m.questions) {
 				updatedStats, _, _ := game.RunGrammarSession(context.Background(), m.playerStats, m.answers)
 				m.playerStats = updatedStats
+				m.hpAnimator.Sync(m.playerStats.HP)
 				m.showFeedback = true
 				m.answerInput.SetValue("")
 				return m, func() tea.Msg { return TownToRootMsg{} }
@@ -166,12 +174,15 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.feedback = fmt.Sprintf(i18n.T("dungeon_incorrect_answer"), currentQ.Options[currentQ.AnswerIndex])
 				m.isCorrect = false
+				prevHP := m.playerStats.HP
 				// Immediate HP update for UX
 				m.playerStats.MaxHP = game.MaxHPForLevel(m.playerStats.Level)
 				M := game.AllowedMisses(len(m.questions))
 				dmg := game.DamagePerMiss(m.playerStats.MaxHP, M)
 				m.playerStats = game.ApplyDamage(m.playerStats, dmg)
 				m.playerStats = game.ResetCombo(m.playerStats)
+				m.showFeedback = true
+				return m, m.hpAnimator.StartAnimation(prevHP, m.playerStats.HP)
 			}
 			m.showFeedback = true
 			return m, nil
@@ -192,8 +203,9 @@ func (m DungeonModel) View() string {
 		return i18n.T("exiting_message") + "\n"
 	}
 
-	s := m.playerStats
-	header := components.Header(s, true, 0)
+	displayStats := m.playerStats
+	displayStats.HP = m.hpAnimator.Display()
+	header := components.Header(displayStats, true, 0)
 
 	var content string
 	if len(m.questions) == 0 {
