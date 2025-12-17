@@ -78,6 +78,9 @@ type RootModel struct {
 	settings     SettingsModel
 	geminiClient *services.GeminiClient // Add GeminiClient
 	LangPref     string
+	// Terminal dimensions tracked from tea.WindowSizeMsg
+	TermWidth  int
+	TermHeight int
 }
 
 // NewRootModel creates the top-level model.
@@ -121,7 +124,11 @@ func NewRootModel() RootModel {
 func (m RootModel) Init() tea.Cmd { return nil }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.TermWidth = msg.Width
+		m.TermHeight = msg.Height
+		return m, nil
 	case TownToRootMsg: // Handle message from TownModel to return to Top
 		m.state = StateTop
 		m.Status = m.town.playerStats // Update RootModel's stats from TownModel
@@ -303,35 +310,44 @@ func (m RootModel) handleTopEnter() (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m RootModel) centerIfPossible(s string) string {
+	if m.TermWidth > 0 && m.TermHeight > 0 {
+		return lipgloss.Place(m.TermWidth, m.TermHeight, lipgloss.Center, lipgloss.Center, s)
+	}
+	return s
+}
+
 func (m RootModel) View() string {
+	var out string
 	switch m.state {
 	case StateTop:
-		return m.viewTop()
+		out = m.viewTop()
 	case StateTown:
-		return m.viewTown()
+		out = m.viewTown()
 	case StateBattle: // Added StateBattle view
-		return m.battle.View()
+		out = m.battle.View()
 	case StateDungeon: // Added StateDungeon view
-		return m.dungeon.View()
+		out = m.dungeon.View()
 	case StateTavern:
-		return m.tavern.View()
+		out = m.tavern.View()
 	case StateSpelling:
-		return m.spelling.View()
+		out = m.spelling.View()
 	case StateListening:
-		return m.listening.View()
+		out = m.listening.View()
 	case StateAnalysis:
-		return m.viewAnalysis()
+		out = m.viewAnalysis()
 	case StateHistory:
-		return m.viewHistory()
+		out = m.viewHistory()
 	case StateEquipment:
-		return m.viewEquipment()
+		out = m.viewEquipment()
 	case StateStatus:
-		return m.viewStatus()
+		out = m.viewStatus()
 	case StateSettings:
-		return m.viewSettings()
+		out = m.viewSettings()
 	default:
-		return "Unknown state"
+		out = "Unknown state"
 	}
+	return m.centerIfPossible(out)
 }
 
 func (m RootModel) viewTop() string {
@@ -375,7 +391,12 @@ func (m RootModel) viewTop() string {
 	if m.note != "" {
 		footer = footer + "\n" + noteStyle.Render(m.note)
 	}
-	return fmt.Sprintf("%s\n%s\n\n%s\n", header, menuBox, footer)
+	overall := fmt.Sprintf("%s\n%s\n\n%s\n", header, menuBox, footer)
+	// Center the whole output if we have window dimensions
+	if m.TermWidth > 0 && m.TermHeight > 0 {
+		return lipgloss.Place(m.TermWidth, m.TermHeight, lipgloss.Center, lipgloss.Center, overall)
+	}
+	return overall
 }
 
 func (m RootModel) viewTown() string {
