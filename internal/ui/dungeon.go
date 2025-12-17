@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
 	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
@@ -87,7 +88,16 @@ func (m DungeonModel) fetchQuestionsCmd() tea.Cmd {
 		if err := json.Unmarshal(payload.Content, &grammarEnvelope); err != nil {
 			return DungeonQuestionMsg{Err: fmt.Errorf("failed to parse grammar questions: %w", err)}
 		}
-		return DungeonQuestionMsg{Questions: grammarEnvelope.Traps}
+		cfg, _ := config.LoadConfig()
+		N := cfg.QuestionsPerSession
+		if N <= 0 {
+			N = 5
+		}
+		qs := grammarEnvelope.Traps
+		if len(qs) > N {
+			qs = qs[:N]
+		}
+		return DungeonQuestionMsg{Questions: qs}
 	}
 }
 
@@ -117,20 +127,37 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Move to next question or end session
 				m.showFeedback = false
 				m.answerInput.SetValue("")
-				m.currentQuestion++
-				if m.currentQuestion >= len(m.questions) {
+				// If the next index would be past the last question, end session now
+				if m.currentQuestion+1 >= len(m.questions) {
 					// End session, show results
 					updatedStats, _, _ := game.RunGrammarSession(context.Background(), m.playerStats, m.answers)
 					m.playerStats = updatedStats
 					return m, func() tea.Msg { return TownToRootMsg{} } // For now, just return to town
 				}
+				m.currentQuestion++
 				return m, nil
 			}
 
 			// Process answer
+			// Defensive: ensure currentQuestion is within bounds
+			if m.currentQuestion < 0 || m.currentQuestion >= len(m.questions) {
+				m.feedback = i18n.T("dungeon_error_state")
+				m.showFeedback = true
+				m.isCorrect = false
+				return m, nil
+			}
 			currentQ := m.questions[m.currentQuestion]
 			isCorrect := (m.answerInput.Value() == currentQ.Options[currentQ.AnswerIndex])
 			m.answers = append(m.answers, game.GrammarAnswer{Correct: isCorrect})
+
+			// Auto-finalize when answers reach configured count
+			if len(m.answers) == len(m.questions) {
+				updatedStats, _, _ := game.RunGrammarSession(context.Background(), m.playerStats, m.answers)
+				m.playerStats = updatedStats
+				m.showFeedback = true
+				m.answerInput.SetValue("")
+				return m, func() tea.Msg { return TownToRootMsg{} }
+			}
 
 			if isCorrect {
 				m.feedback = i18n.T("correct_feedback")
@@ -139,10 +166,16 @@ func (m DungeonModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.feedback = fmt.Sprintf(i18n.T("dungeon_incorrect_answer"), currentQ.Options[currentQ.AnswerIndex])
 				m.isCorrect = false
-				// TODO: Update player stats (HP, Combo reset, etc.) - will be handled by RunGrammarSession
+				// Immediate HP update for UX
+				m.playerStats.MaxHP = game.MaxHPForLevel(m.playerStats.Level)
+				M := game.AllowedMisses(len(m.questions))
+				dmg := game.DamagePerMiss(m.playerStats.MaxHP, M)
+				m.playerStats = game.ApplyDamage(m.playerStats, dmg)
+				m.playerStats = game.ResetCombo(m.playerStats)
 			}
 			m.showFeedback = true
 			return m, nil
+
 		}
 	}
 
@@ -169,6 +202,22 @@ func (m DungeonModel) View() string {
 			content += feedbackStyleDungeon.Render(m.feedback)
 		}
 	} else {
+		// Guard: currentQuestion may equal len(questions) transiently after Update finalizes the session
+		if m.currentQuestion >= len(m.questions) {
+			content = i18n.T("session_complete") + "\n\n"
+			if m.showFeedback {
+				content += feedbackStyleDungeon.Render(m.feedback)
+			}
+			footer := components.Footer(i18n.T("footer_dungeon"), 0)
+			return lipgloss.JoinVertical(lipgloss.Left,
+				header,
+				lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""),
+				dungeonStyle.Render(lipgloss.NewStyle().Width(lipgloss.Width(header)-dungeonStyle.GetHorizontalPadding()).Render(content)),
+				lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""),
+				footer,
+			)
+		}
+
 		currentQ := m.questions[m.currentQuestion]
 		questionText := questionStyleDungeon.Render(fmt.Sprintf(i18n.T("dungeon_question_progress"), m.currentQuestion+1, len(m.questions), currentQ.Question))
 

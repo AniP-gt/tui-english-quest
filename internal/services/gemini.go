@@ -51,7 +51,7 @@ type QuestionPayload struct {
 	Content []byte
 }
 
-// FetchQuestions fetches five questions for the given mode using the Gemini API.
+// FetchQuestions fetches questions for the given mode using the Gemini API.
 func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 	gc, err := NewGeminiClient(ctx)
 	if err != nil {
@@ -59,21 +59,35 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 	}
 	// The genai.GenerativeModel does not have a Close() method, so we don't defer it here.
 
-	// Read user language preference from config and build language directive
+	// Read user language preference and configured questions per session
 	langPref := "en"
-	if cfg, err := config.LoadConfig(); err == nil {
-		if cfg.LangPref == "ja" {
-			langPref = "ja"
-		}
+	cfg, _ := config.LoadConfig()
+	if cfg.LangPref == "ja" {
+		langPref = "ja"
+	}
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
 	}
 
-	prompt := fmt.Sprintf("Generate 5 *new and diverse* %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", mode, mode)
+	prompt := fmt.Sprintf("Generate %d *new and diverse* %s questions in JSON format. The JSON should strictly adhere to the following structure for %s mode:\n\n", N, mode, mode)
 
-	// Add language instruction depending on preference
-	if langPref == "ja" {
-		prompt = "Please write the problem text in Japanese, but provide answers/options in English. Return only JSON.\n\n" + prompt
-	} else {
-		prompt = "Please write the problem text and answers in English. Return only JSON.\n\n" + prompt
+	// Language instruction: enforce English for problem texts in specific modes
+	switch mode {
+	case ModeGrammar, ModeTavern, ModeListening:
+		// Problem text (questions, NPC replies, listening prompts and options) must be English.
+		if langPref == "ja" {
+			prompt = "Write all problem texts, prompts, NPC replies and options in English. Provide explanations/transcripts/evaluation reasons in Japanese. Return only JSON.\n\n" + prompt
+		} else {
+			prompt = "Write problem texts, prompts, NPC replies, options and explanations in English. Return only JSON.\n\n" + prompt
+		}
+	default:
+		// Vocab and Spelling follow user langPref for problem text.
+		if langPref == "ja" {
+			prompt = "Please write the problem text in Japanese, but provide answers/options in English. Return only JSON.\n\n" + prompt
+		} else {
+			prompt = "Please write the problem text and answers in English. Return only JSON.\n\n" + prompt
+		}
 	}
 
 	switch mode {
@@ -117,7 +131,9 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
     {"npc_reply": "string"}
   ]
 }
-# IMPORTANT: The "turns" array MUST contain exactly 5 objects. Return ONLY the JSON object above (no explanation, no markdown, no surrounding text).`
+Return ONLY the JSON object above (no explanation, no markdown, no surrounding text).`
+		// Add explicit constraint about turns count matching N
+		prompt += fmt.Sprintf("\n# IMPORTANT: The \"turns\" array MUST contain exactly %d objects. Return ONLY the JSON object above (no explanation, no markdown, no surrounding text).\n", N)
 	case ModeSpelling:
 		prompt += `
 {
@@ -172,15 +188,15 @@ func FetchQuestions(ctx context.Context, mode string) (QuestionPayload, error) {
 
 	extractedJSON := []byte(extracted)
 
-	// If mode is tavern and the extracted JSON doesn't have 5 turns, scan all JSON
-	// blocks in the response and pick the first one that does.
+	// If mode is tavern and the extracted JSON doesn't have the expected number
+	// of turns, scan all JSON blocks in the response and pick the first one that does.
 	if mode == ModeTavern {
 		var te TavernEnvelope
-		if err := json.Unmarshal(extractedJSON, &te); err != nil || len(te.Turns) != 5 {
+		if err := json.Unmarshal(extractedJSON, &te); err != nil || len(te.Turns) != N {
 			blocks := findJSONBlocks(jsonString)
 			for _, b := range blocks {
 				var cand TavernEnvelope
-				if err := json.Unmarshal([]byte(b), &cand); err == nil && len(cand.Turns) == 5 {
+				if err := json.Unmarshal([]byte(b), &cand); err == nil && len(cand.Turns) == N {
 					extractedJSON = []byte(b)
 					break
 				}
@@ -288,7 +304,7 @@ func FetchAndValidate(ctx context.Context, mode string) (QuestionPayload, error)
 	return payload, nil
 }
 
-// ValidatePayload validates JSON shape and count (5 items expected).
+// ValidatePayload validates JSON shape and count (uses configured QuestionsPerSession).
 func ValidatePayload(payload QuestionPayload) error {
 	switch payload.Mode {
 	case ModeVocab:
@@ -325,8 +341,13 @@ func validateVocab(raw []byte) error {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid vocab JSON: %w", err)
 	}
-	if len(env.Questions) != 5 {
-		return fmt.Errorf("vocab questions must be 5, got %d", len(env.Questions))
+	cfg, _ := config.LoadConfig()
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
+	}
+	if len(env.Questions) != N {
+		return fmt.Errorf("vocab questions must be %d, got %d", N, len(env.Questions))
 	}
 	for i, q := range env.Questions {
 		if err := validateOptions(q.Options, q.AnswerIndex); err != nil {
@@ -353,8 +374,13 @@ func validateGrammar(raw []byte) error {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid grammar JSON: %w", err)
 	}
-	if len(env.Traps) != 5 {
-		return fmt.Errorf("grammar traps must be 5, got %d", len(env.Traps))
+	cfg, _ := config.LoadConfig()
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
+	}
+	if len(env.Traps) != N {
+		return fmt.Errorf("grammar traps must be %d, got %d", N, len(env.Traps))
 	}
 	for i, t := range env.Traps {
 		if err := validateOptions(t.Options, t.AnswerIndex); err != nil {
@@ -380,8 +406,13 @@ func validateTavern(raw []byte) error {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid tavern JSON: %w", err)
 	}
-	if len(env.Turns) != 5 {
-		return fmt.Errorf("tavern turns must be 5, got %d", len(env.Turns))
+	cfg, _ := config.LoadConfig()
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
+	}
+	if len(env.Turns) != N {
+		return fmt.Errorf("tavern turns must be %d, got %d", N, len(env.Turns))
 	}
 	if len(env.EvaluationRubric) < 3 {
 		return errors.New("tavern evaluation_rubric must have at least 3 levels")
@@ -400,11 +431,16 @@ type batchEvalEnvelope struct {
 	Evaluations []TavernEvaluation `json:"evaluations"`
 }
 
-// BatchEvaluateTavern evaluates 5 turns in one request.
+// BatchEvaluateTavern evaluates N turns in one request.
 // langPref: "en" or "ja"
 func (gc *GeminiClient) BatchEvaluateTavern(ctx context.Context, rubric []string, npcOpening string, npcReplies []TavernTurn, playerUtterances []string, langPref string) ([]TavernEvaluation, error) {
-	if len(npcReplies) != 5 || len(playerUtterances) != 5 {
-		return nil, fmt.Errorf("expected 5 npcReplies and 5 playerUtterances")
+	cfg, _ := config.LoadConfig()
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
+	}
+	if len(npcReplies) != N || len(playerUtterances) != N {
+		return nil, fmt.Errorf("expected %d npcReplies and %d playerUtterances", N, N)
 	}
 
 	prompt := buildBatchEvalPrompt(rubric, npcOpening, npcReplies, playerUtterances, langPref)
@@ -436,8 +472,9 @@ func (gc *GeminiClient) BatchEvaluateTavern(ctx context.Context, rubric []string
 		return fallbackEvaluations(fmt.Errorf("invalid JSON: %w", err)), nil
 	}
 
-	if len(env.Evaluations) != 5 {
-		return fallbackEvaluations(fmt.Errorf("evaluations length != 5: %d", len(env.Evaluations))), nil
+	expected := len(npcReplies)
+	if len(env.Evaluations) != expected {
+		return fallbackEvaluations(fmt.Errorf("evaluations length != %d: %d", expected, len(env.Evaluations))), nil
 	}
 
 	for i := range env.Evaluations {
@@ -483,7 +520,8 @@ func buildBatchEvalPrompt(rubric []string, npcOpening string, npcReplies []Taver
 	b.WriteString("NPC Opening:\n")
 	b.WriteString(npcOpening + "\n\n")
 
-	for i := 0; i < 5; i++ {
+	count := len(npcReplies)
+	for i := 0; i < count; i++ {
 		b.WriteString(fmt.Sprintf("Turn %d NPC reply (EN):\n%s\n", i+1, npcReplies[i].NPCReply))
 		b.WriteString(fmt.Sprintf("Turn %d Player utterance:\n%s\n\n", i+1, playerUtterances[i]))
 	}
@@ -496,7 +534,7 @@ func buildBatchEvalPrompt(rubric []string, npcOpening string, npcReplies []Taver
 		b.WriteString("Please return reasons in English (brief).\n")
 	}
 
-	b.WriteString("Make sure the JSON is valid and contains exactly 5 evaluations in order.\n")
+	b.WriteString(fmt.Sprintf("Make sure the JSON is valid and contains exactly %d evaluations in order.\n", count))
 	return b.String()
 }
 
@@ -515,8 +553,13 @@ func validateSpelling(raw []byte) error {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid spelling JSON: %w", err)
 	}
-	if len(env.Prompts) != 5 {
-		return fmt.Errorf("spelling prompts must be 5, got %d", len(env.Prompts))
+	cfg, _ := config.LoadConfig()
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
+	}
+	if len(env.Prompts) != N {
+		return fmt.Errorf("spelling prompts must be %d, got %d", N, len(env.Prompts))
 	}
 	return nil
 }
@@ -537,8 +580,13 @@ func validateListening(raw []byte) error {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("invalid listening JSON: %w", err)
 	}
-	if len(env.Audio) != 5 {
-		return fmt.Errorf("listening audio items must be 5, got %d", len(env.Audio))
+	cfg, _ := config.LoadConfig()
+	N := 5
+	if cfg.QuestionsPerSession > 0 {
+		N = cfg.QuestionsPerSession
+	}
+	if len(env.Audio) != N {
+		return fmt.Errorf("listening audio items must be %d, got %d", N, len(env.Audio))
 	}
 	for i, a := range env.Audio {
 		if err := validateOptions(a.Options, a.AnswerIndex); err != nil {

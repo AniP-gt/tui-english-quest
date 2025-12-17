@@ -50,39 +50,77 @@ func RunVocabSession(ctx context.Context, stats Stats, answers []VocabAnswer) (S
 	before := stats
 	combo := stats.Combo
 	bestCombo := combo
-	expDelta := 0
+	// Use spec defaults: BaseExp for vocab = 4
+	baseExp := 4
+	// Ensure MaxHP is in sync with level
+	stats.MaxHP = MaxHPForLevel(stats.Level)
+	// Compute allowed misses and damage per miss
+	N := len(answers)
+	M := AllowedMisses(N)
+	dmg := DamagePerMiss(stats.MaxHP, M)
+
+	sumCorrectExp := 0
 	hpDelta := 0
-	for _, a := range answers {
+	fainted := false
+	for i, a := range answers {
 		if a.Correct {
-			combo = AddCombo(Stats{Combo: combo}).Combo
-			expDelta += 4
+			// increment combo
+			tmp := Stats{Combo: combo}
+			combo = AddCombo(tmp).Combo
+			_, tierMul := TierForLevel(stats.Level)
+			qexp := QExpFor(baseExp, tierMul, false)
+			sumCorrectExp += qexp
 			if combo > bestCombo {
 				bestCombo = combo
 			}
 		} else {
-			combo = ResetCombo(Stats{Combo: combo}).Combo
-			hpDelta -= 10
+			// apply damage immediately
+			tmp := Stats{Combo: combo}
+			combo = ResetCombo(tmp).Combo
+			hpDelta -= dmg
+			stats.HP -= dmg
+			if stats.HP <= 0 {
+				stats.HP = 0
+				fainted = true
+				// stop processing further questions
+				// truncate answers considered to i+1
+				answers = answers[:i+1]
+				break
+			}
 		}
 	}
 	stats.Combo = combo
-	stats = GainExp(stats, expDelta)
-	stats.HP += hpDelta
-	if stats.HP < 0 {
-		stats.HP = 0
+
+	// Settlement
+	var sessionExp int
+	if !fainted && len(answers) == N {
+		// clear
+		_, tierMul := TierForLevel(stats.Level)
+		clearBonus := ClearBonus(N, baseExp, tierMul)
+		allCorrect := countVocabCorrect(answers) == N
+		sessionExp = SessionExpClear(sumCorrectExp, clearBonus, allCorrect, N, true)
+		stats = GainExp(stats, sessionExp)
+	} else {
+		// fail
+		sessionExp = SessionExpFail(sumCorrectExp, 0.40)
+		stats = GainExp(stats, sessionExp)
+		if fainted {
+			stats = ApplyFaintPenalty(stats)
+		}
 	}
-	stats, fainted := ApplyFaint(stats) // Now defined in this file
+
 	summary.Correct = countVocabCorrect(answers)
-	summary.ExpDelta = expDelta
+	summary.ExpDelta = sessionExp
 	summary.HPDelta = hpDelta
 	summary.BestCombo = bestCombo
 	summary.Fainted = fainted
-	summary.LeveledUp = LeveledUp(before, stats) // Now defined in this file
+	summary.LeveledUp = LeveledUp(before, stats)
 
 	rec := db.SessionRecord{
 		Mode:         "vocab",
 		CorrectCount: summary.Correct,
 		BestCombo:    bestCombo,
-		ExpGained:    expDelta,
+		ExpGained:    sessionExp,
 		HPDelta:      hpDelta,
 		Fainted:      fainted,
 		LeveledUp:    summary.LeveledUp,
@@ -105,37 +143,67 @@ func countVocabCorrect(ans []VocabAnswer) int {
 func RunGrammarSession(ctx context.Context, stats Stats, answers []GrammarAnswer) (Stats, SessionSummary, error) {
 	summary := SessionSummary{Mode: "grammar"}
 	before := stats
-	expDelta := 0
+	baseExp := 3
+	// Ensure MaxHP is in sync with level
+	stats.MaxHP = MaxHPForLevel(stats.Level)
+	N := len(answers)
+	M := AllowedMisses(N)
+	dmg := DamagePerMiss(stats.MaxHP, M)
+
+	sumCorrectExp := 0
 	hpDelta := 0
 	defDelta := 0.0
 	correct := 0
-	for _, a := range answers {
+	fainted := false
+	for i, a := range answers {
 		if a.Correct {
-			expDelta += 3
+			_, tierMul := TierForLevel(stats.Level)
+			qexp := QExpFor(baseExp, tierMul, false)
+			sumCorrectExp += qexp
 			defDelta += 0.2
 			correct++
 		} else {
-			hpDelta -= 6
+			hpDelta -= dmg
+			stats.HP -= dmg
+			if stats.HP <= 0 {
+				stats.HP = 0
+				fainted = true
+				answers = answers[:i+1]
+				break
+			}
 		}
 	}
-	stats = GainExp(stats, expDelta)
+
 	stats = AddDefense(stats, defDelta)
-	stats.HP += hpDelta
-	if stats.HP < 0 {
-		stats.HP = 0
+
+	var sessionExp int
+	if !fainted && len(answers) == N {
+		// clear
+		_, tierMul := TierForLevel(stats.Level)
+		clearBonus := ClearBonus(N, baseExp, tierMul)
+		allCorrect := correct == N
+		sessionExp = SessionExpClear(sumCorrectExp, clearBonus, allCorrect, N, true)
+		stats = GainExp(stats, sessionExp)
+	} else {
+		// fail
+		sessionExp = SessionExpFail(sumCorrectExp, 0.40)
+		stats = GainExp(stats, sessionExp)
+		if fainted {
+			stats = ApplyFaintPenalty(stats)
+		}
 	}
-	stats, fainted := ApplyFaint(stats)
+
 	summary.Correct = correct
-	summary.ExpDelta = expDelta
+	summary.ExpDelta = sessionExp
 	summary.HPDelta = hpDelta
-	summary.DefenseDelta = defDelta // Assuming DefenseDelta is added to SessionSummary
+	summary.DefenseDelta = defDelta
 	summary.Fainted = fainted
 	summary.LeveledUp = LeveledUp(before, stats)
 
 	rec := db.SessionRecord{
 		Mode:         "grammar",
 		CorrectCount: summary.Correct,
-		ExpGained:    expDelta,
+		ExpGained:    sessionExp,
 		HPDelta:      hpDelta,
 		DefenseDelta: defDelta, // Assuming DefenseDelta is added to SessionRecord
 		Fainted:      fainted,
@@ -185,25 +253,52 @@ type ListeningAnswer struct{ Correct bool }
 func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAnswer) (Stats, SessionSummary, error) {
 	summary := SessionSummary{Mode: "listening"}
 	before := stats
-	expDelta := 0
+	baseExp := 5
+	// Ensure MaxHP is in sync with level
+	stats.MaxHP = MaxHPForLevel(stats.Level)
+	N := len(answers)
+	M := AllowedMisses(N)
+	dmg := DamagePerMiss(stats.MaxHP, M)
+
+	sumCorrectExp := 0
 	hpDelta := 0
 	correct := 0
-	for _, a := range answers {
+	fainted := false
+	for i, a := range answers {
 		if a.Correct {
-			expDelta += 3 // follow grammar's smaller XP but same pattern
+			_, tierMul := TierForLevel(stats.Level)
+			qexp := QExpFor(baseExp, tierMul, false)
+			sumCorrectExp += qexp
 			correct++
 		} else {
-			hpDelta -= 5
+			hpDelta -= dmg
+			stats.HP -= dmg
+			if stats.HP <= 0 {
+				stats.HP = 0
+				fainted = true
+				answers = answers[:i+1]
+				break
+			}
 		}
 	}
-	stats = GainExp(stats, expDelta)
-	stats.HP += hpDelta
-	if stats.HP < 0 {
-		stats.HP = 0
+
+	var sessionExp int
+	if !fainted && len(answers) == N {
+		_, tierMul := TierForLevel(stats.Level)
+		clearBonus := ClearBonus(N, baseExp, tierMul)
+		allCorrect := correct == N
+		sessionExp = SessionExpClear(sumCorrectExp, clearBonus, allCorrect, N, true)
+		stats = GainExp(stats, sessionExp)
+	} else {
+		sessionExp = SessionExpFail(sumCorrectExp, 0.40)
+		stats = GainExp(stats, sessionExp)
+		if fainted {
+			stats = ApplyFaintPenalty(stats)
+		}
 	}
-	stats, fainted := ApplyFaint(stats)
+
 	summary.Correct = correct
-	summary.ExpDelta = expDelta
+	summary.ExpDelta = sessionExp
 	summary.HPDelta = hpDelta
 	summary.Fainted = fainted
 	summary.LeveledUp = LeveledUp(before, stats)
@@ -211,7 +306,7 @@ func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAn
 	rec := db.SessionRecord{
 		Mode:         "listening",
 		CorrectCount: summary.Correct,
-		ExpGained:    expDelta,
+		ExpGained:    sessionExp,
 		HPDelta:      hpDelta,
 		Fainted:      fainted,
 		LeveledUp:    summary.LeveledUp,

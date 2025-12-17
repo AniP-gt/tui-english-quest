@@ -1,8 +1,10 @@
 package game
 
+import "math"
+
 // GainExp applies experience gain and returns updated stats.
 func GainExp(s Stats, gained int) Stats {
-	effectiveGain := int(float64(gained) * (1 + s.ExpBoost))
+	effectiveGain := int(math.Round(float64(gained) * (1 + s.ExpBoost)))
 	s.Exp += effectiveGain
 	for s.Exp >= s.Next {
 		s.Exp -= s.Next
@@ -14,26 +16,18 @@ func GainExp(s Stats, gained int) Stats {
 // LevelUp increments level and updates thresholds.
 func LevelUp(s Stats) Stats {
 	s.Level++
-	// Simplified thresholds
-	s.Next = nextThreshold(s.Level)
-	s.MaxHP += 10
+	// Use ExpToNext formula from design
+	s.Next = ExpToNext(s.Level)
+	// Recompute MaxHP from level and fully heal
+	s.MaxHP = MaxHPForLevel(s.Level)
+	// Ensure HP is capped to MaxHP and fully heal
 	s.HP = s.MaxHP
+	// Keep existing attack/defense growth for now (attack +2, defense +1)
 	s.Attack += 2
 	s.Defense += 1
 	return s
 }
 
 func nextThreshold(level int) int {
-	switch level {
-	case 1:
-		return 30
-	case 2:
-		return 50
-	case 3:
-		return 80
-	case 4:
-		return 120
-	default:
-		return 150
-	}
+	return ExpToNext(level)
 }

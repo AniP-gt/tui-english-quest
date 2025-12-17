@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"tui-english-quest/internal/config"
 	"tui-english-quest/internal/game"
 	"tui-english-quest/internal/i18n"
 	"tui-english-quest/internal/services"
@@ -66,7 +67,16 @@ func (m ListeningModel) fetchQuestionsCmd() tea.Cmd {
 		if err := json.Unmarshal(payload.Content, &env); err != nil {
 			return ListeningQuestionMsg{Err: err}
 		}
-		return ListeningQuestionMsg{Items: env.Audio}
+		cfg, _ := config.LoadConfig()
+		N := cfg.QuestionsPerSession
+		if N <= 0 {
+			N = 5
+		}
+		items := env.Audio
+		if len(items) > N {
+			items = items[:N]
+		}
+		return ListeningQuestionMsg{Items: items}
 	}
 }
 
@@ -133,10 +143,23 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				item := m.items[m.currentIndex]
 				isCorrect := m.selected == item.AnswerIndex
 				m.answers = append(m.answers, game.ListeningAnswer{Correct: isCorrect})
+				// Auto-finalize if we've answered all items
+				if len(m.answers) == len(m.items) {
+					updatedStats, _, _ := game.RunListeningSession(context.Background(), m.playerStats, m.answers)
+					m.playerStats = updatedStats
+					m.showFeedback = true
+					return m, func() tea.Msg { return ListeningToTownMsg{} }
+				}
 				if isCorrect {
 					m.feedback = i18n.T("correct_feedback")
 				} else {
 					m.feedback = fmt.Sprintf(i18n.T("incorrect_feedback"), item.Options[item.AnswerIndex])
+					// Immediate HP update for UX
+					m.playerStats.MaxHP = game.MaxHPForLevel(m.playerStats.Level)
+					M := game.AllowedMisses(len(m.items))
+					dmg := game.DamagePerMiss(m.playerStats.MaxHP, M)
+					m.playerStats = game.ApplyDamage(m.playerStats, dmg)
+					m.playerStats = game.ResetCombo(m.playerStats)
 				}
 				m.showFeedback = true
 				return m, nil
