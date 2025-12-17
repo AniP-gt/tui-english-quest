@@ -60,24 +60,25 @@ type ListeningToTownMsg struct{}
 
 // RootModel is the top-level model that manages different application states.
 type RootModel struct {
-	Status       game.Stats
-	menu         []string
-	cursor       int
-	note         string
-	state        AppState
-	town         TownModel
-	battle       BattleModel    // Added BattleModel
-	dungeon      DungeonModel   // Added DungeonModel
-	tavern       TavernModel    // Added TavernModel
-	spelling     SpellingModel  // SpellingModel (mock)
-	listening    ListeningModel // ListeningModel (mock)
-	analysis     AnalysisModel  // Embed AnalysisModel
-	history      HistoryModel
-	equipment    EquipmentModel
-	status       StatusModel
-	settings     SettingsModel
-	geminiClient *services.GeminiClient // Add GeminiClient
-	LangPref     string
+	Status            game.Stats
+	menu              []string
+	cursor            int
+	note              string
+	state             AppState
+	confirmingNewGame bool
+	town              TownModel
+	battle            BattleModel    // Added BattleModel
+	dungeon           DungeonModel   // Added DungeonModel
+	tavern            TavernModel    // Added TavernModel
+	spelling          SpellingModel  // SpellingModel (mock)
+	listening         ListeningModel // ListeningModel (mock)
+	analysis          AnalysisModel  // Embed AnalysisModel
+	history           HistoryModel
+	equipment         EquipmentModel
+	status            StatusModel
+	settings          SettingsModel
+	geminiClient      *services.GeminiClient // Add GeminiClient
+	LangPref          string
 	// Terminal dimensions tracked from tea.WindowSizeMsg
 	TermWidth  int
 	TermHeight int
@@ -262,7 +263,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m RootModel) updateTop(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
+		key := msg.String()
+		switch key {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "q": // T034: 途中離脱
@@ -271,6 +273,11 @@ func (m RootModel) updateTop(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			return m, tea.Quit
+		}
+		if m.confirmingNewGame {
+			return m.handleTopNewGameConfirmationKey(msg)
+		}
+		switch key {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -282,10 +289,7 @@ func (m RootModel) updateTop(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			return m.handleTopEnter()
 		case "n":
-			m.Status = game.DefaultStats()
-			m.note = "New Game started with defaults"
-			m.town = NewTownModel(m.Status, m.geminiClient)
-			m.state = StateTown
+			m = m.requestNewGameConfirmation()
 		}
 	}
 	return m, nil
@@ -298,10 +302,7 @@ func (m RootModel) handleTopEnter() (tea.Model, tea.Cmd) {
 		m.town = NewTownModel(m.Status, m.geminiClient)
 		return m, nil
 	case 1: // New Game
-		m.Status = game.DefaultStats()
-		m.note = i18n.T("note_newgame")
-		m.town = NewTownModel(m.Status, m.geminiClient)
-		m.state = StateTown
+		m = m.requestNewGameConfirmation()
 		return m, nil
 	case 2: // Quit
 		return m, tea.Quit
@@ -310,7 +311,45 @@ func (m RootModel) handleTopEnter() (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m RootModel) handleTopNewGameConfirmationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch strings.ToLower(msg.String()) {
+	case "y":
+		m = m.startNewGame()
+	case "n", "esc":
+		m = m.cancelNewGameConfirmation()
+	}
+	return m, nil
+}
+
+func (m RootModel) requestNewGameConfirmation() RootModel {
+	if m.confirmingNewGame {
+		return m
+	}
+	m.note = i18n.T("note_confirm_newgame")
+	m.confirmingNewGame = true
+	return m
+}
+
+func (m RootModel) cancelNewGameConfirmation() RootModel {
+	if !m.confirmingNewGame {
+		return m
+	}
+	m.note = i18n.T("note_newgame")
+	m.confirmingNewGame = false
+	return m
+}
+
+func (m RootModel) startNewGame() RootModel {
+	m.Status = game.DefaultStats()
+	m.note = i18n.T("note_newgame")
+	m.town = NewTownModel(m.Status, m.geminiClient)
+	m.state = StateTown
+	m.confirmingNewGame = false
+	return m
+}
+
 func (m RootModel) centerIfPossible(s string) string {
+
 	if m.TermWidth > 0 && m.TermHeight > 0 {
 		return lipgloss.Place(m.TermWidth, m.TermHeight, lipgloss.Center, lipgloss.Center, s)
 	}
