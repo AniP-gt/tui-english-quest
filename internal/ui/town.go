@@ -50,7 +50,8 @@ func NewTownModel(stats game.Stats, gc *services.GeminiClient) TownModel {
 	// TODO: Fetch actual AI advice based on player history
 	// For now, use a placeholder report.
 	// In a real implementation, playerID would be passed and history fetched.
-	aiReport, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, 200) // Use player name as ID, limit 200
+	aiReport, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, stats, 200) // Use player name as ID, limit 200
+
 	if err != nil {
 		aiReport = services.WeaknessReport{
 			Recommendation: fmt.Sprintf(i18n.T("error_ai_advice"), err),
@@ -142,7 +143,34 @@ func (m TownModel) View() string {
 	}
 	menuBody += components.Menu(labels, m.cursor, 2, 0)
 
-	advice := fmt.Sprintf(i18n.T("town_ai_advice_format"), strings.Join(m.aiAdvice.WeakPoints, ", "), m.aiAdvice.Recommendation)
+	weakNames := []string{}
+	for _, insight := range m.aiAdvice.WeakPoints {
+		label := modeLabel(insight.Mode)
+		if label != "" {
+			weakNames = append(weakNames, label)
+		}
+	}
+	weakLabel := strings.Join(weakNames, ", ")
+	if weakLabel == "" {
+		weakLabel = i18n.T("analysis_list_none")
+	}
+
+	nextAction := i18n.T("analysis_action_plan_empty")
+	if len(m.aiAdvice.ActionPlan) > 0 {
+		plan := m.aiAdvice.ActionPlan[0]
+		actionLabel := plan.Title
+		if plan.Mode != "" {
+			actionLabel = fmt.Sprintf("%s (%s)", actionLabel, modeLabel(plan.Mode))
+		}
+		nextAction = fmt.Sprintf("%s — %s", actionLabel, plan.Description)
+	}
+
+	summary := m.aiAdvice.Summary
+	if summary == "" {
+		summary = i18n.T("analysis_list_none")
+	}
+
+	advice := fmt.Sprintf(i18n.T("town_ai_advice_format"), summary, weakLabel, nextAction)
 
 	footer := components.Footer(i18n.T("footer_town"), 0)
 

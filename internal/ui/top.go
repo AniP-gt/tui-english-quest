@@ -143,6 +143,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Status = m.analysis.playerStats               // Update RootModel's stats from AnalysisModel
 		m.town = NewTownModel(m.Status, m.geminiClient) // Refresh TownModel with updated stats
 		return m, nil
+	case TownToAnalysisMsg:
+		m.state = StateAnalysis
+		m.analysis = NewAnalysisModel(m.Status, m.geminiClient)
+		return m, m.analysis.Init()
 	case TownToHistoryMsg:
 		m.state = StateHistory
 		m.history = NewHistoryModel(m.Status)
