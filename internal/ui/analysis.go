@@ -29,10 +29,8 @@ type AnalysisModel struct {
 
 // NewAnalysisModel creates a new AnalysisModel.
 func NewAnalysisModel(stats game.Stats, gc *services.GeminiClient) AnalysisModel {
-	// In a real implementation, playerID would be passed and history fetched.
-	report, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, 200)
+	report, err := services.AnalyzeWeakness(context.Background(), gc, stats.Name, stats, 200)
 	if err != nil {
-		// Handle error, e.g., log it and return an empty report or a report with an error message
 		report = services.WeaknessReport{
 			Recommendation: fmt.Sprintf("Error analyzing weakness: %v", err),
 		}
@@ -53,7 +51,7 @@ func (m AnalysisModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "enter":
-			return m, func() tea.Msg { return TownToRootMsg{} } // Return to Town
+			return m, func() tea.Msg { return AnalysisToTownMsg{} }
 		}
 	}
 	return m, nil
@@ -67,28 +65,62 @@ func (m AnalysisModel) View() string {
 	b.WriteString(analysisTitleStyle.Render(i18n.T("analysis_title") + "\n"))
 	b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, true, false).Width(lipgloss.Width(header)).Render(""))
 
-	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_recent_performance") + "\n"))
+	summary := m.report.Summary
+	if summary == "" {
+		summary = i18n.T("analysis_list_none")
+	}
+	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_summary") + "\n"))
+	b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", summary)))
 
 	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_weak_points") + "\n"))
 	if len(m.report.WeakPoints) == 0 {
-		b.WriteString(analysisItemStyle.Render("- None identified\n"))
+		b.WriteString(analysisItemStyle.Render("- " + i18n.T("analysis_list_none") + "\n"))
 	} else {
 		for _, wp := range m.report.WeakPoints {
-			b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", wp)))
+			line := fmt.Sprintf("- %s: %.0f%% (%s)", modeLabel(wp.Mode), wp.Accuracy*100, formatTrend(wp.Trend))
+			if wp.Description != "" {
+				line = fmt.Sprintf("%s\n  %s", line, wp.Description)
+			}
+			b.WriteString(analysisItemStyle.Render(line + "\n"))
 		}
 	}
 
 	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_strengths") + "\n"))
 	if len(m.report.StrengthPoints) == 0 {
-		b.WriteString(analysisItemStyle.Render("- None identified\n"))
+		b.WriteString(analysisItemStyle.Render("- " + i18n.T("analysis_list_none") + "\n"))
 	} else {
 		for _, sp := range m.report.StrengthPoints {
-			b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", sp)))
+			line := fmt.Sprintf("- %s: %.0f%% (%s)", modeLabel(sp.Mode), sp.Accuracy*100, formatTrend(sp.Trend))
+			if sp.Description != "" {
+				line = fmt.Sprintf("%s\n  %s", line, sp.Description)
+			}
+			b.WriteString(analysisItemStyle.Render(line + "\n"))
 		}
 	}
 
+	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_action_plan") + "\n"))
+	if len(m.report.ActionPlan) == 0 {
+		b.WriteString(analysisItemStyle.Render("- " + i18n.T("analysis_action_plan_empty") + "\n"))
+	} else {
+		for _, plan := range m.report.ActionPlan {
+			label := plan.Title
+			if plan.Mode != "" {
+				label = fmt.Sprintf("%s (%s)", label, modeLabel(plan.Mode))
+			}
+			priority := plan.Priority
+			if priority == "" {
+				priority = "medium"
+			}
+			b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s: %s [%s]\n", label, plan.Description, strings.Title(priority))))
+		}
+	}
+
+	recommendation := m.report.Recommendation
+	if recommendation == "" {
+		recommendation = i18n.T("analysis_list_none")
+	}
 	b.WriteString(analysisSectionStyle.Render("\n" + i18n.T("analysis_recommendations") + "\n"))
-	b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", m.report.Recommendation)))
+	b.WriteString(analysisItemStyle.Render(fmt.Sprintf("- %s\n", recommendation)))
 
 	footer := components.Footer(i18n.T("footer_analysis"), 0)
 
@@ -99,4 +131,15 @@ func (m AnalysisModel) View() string {
 		lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false, false).Width(lipgloss.Width(header)).Render(""), // Separator
 		footer,
 	)
+}
+
+func formatTrend(trend float64) string {
+	switch {
+	case trend > 0.015:
+		return fmt.Sprintf("+%.0f%%", trend*100)
+	case trend < -0.015:
+		return fmt.Sprintf("-%.0f%%", -trend*100)
+	default:
+		return "stable"
+	}
 }
