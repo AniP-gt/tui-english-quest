@@ -125,7 +125,7 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
 		case "esc":
@@ -138,11 +138,7 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.answerInput.SetValue("")
 				// If the next index would be past the last question, end session now
 				if m.currentQuestion+1 >= len(m.questions) {
-					// End session, show results
-					updatedStats, _, _ := game.RunVocabSession(context.Background(), m.playerStats, m.answers)
-					m.playerStats = updatedStats
-					m.hpAnimator.Sync(m.playerStats.HP)
-					return m, func() tea.Msg { return TownToRootMsg{} } // For now, just return to town
+					return m.finalizeVocabSession()
 				}
 
 				m.currentQuestion++
@@ -164,12 +160,7 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// If this was the last answer, finalize session immediately
 			if len(m.answers) == len(m.questions) {
-				updatedStats, _, _ := game.RunVocabSession(context.Background(), m.playerStats, m.answers)
-				m.playerStats = updatedStats
-				m.hpAnimator.Sync(m.playerStats.HP)
-				m.showFeedback = true
-				m.answerInput.SetValue("")
-				return m, func() tea.Msg { return TownToRootMsg{} }
+				return m.finalizeVocabSession()
 			}
 
 			if isCorrect {
@@ -209,6 +200,20 @@ func (m BattleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+func (m BattleModel) finalizeVocabSession() (BattleModel, tea.Cmd) {
+	updatedStats, summary, err := game.RunVocabSession(context.Background(), m.playerStats, m.answers)
+	if err != nil {
+		m.feedback = fmt.Sprintf("Session error: %v", err)
+		m.showFeedback = true
+		return m, nil
+	}
+	m.playerStats = updatedStats
+	m.hpAnimator.Sync(m.playerStats.HP)
+	m.showFeedback = true
+	m.answerInput.SetValue("")
+	return m, func() tea.Msg { return SessionResultMsg{Stats: m.playerStats, Summary: summary} }
 }
 
 func (m BattleModel) View() string {

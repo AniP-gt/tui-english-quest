@@ -123,7 +123,7 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
 		case "esc":
@@ -145,14 +145,12 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.answerInput.SetValue("")
 				m.currentQuestion++
 				if m.currentQuestion >= len(m.prompts) {
-					// End session
-					updatedStats, _, _ := game.RunSpellingSession(context.Background(), m.playerStats, m.answers)
-					m.playerStats = updatedStats
-					return m, func() tea.Msg { return SpellingToTownMsg{} }
+					return m.finalizeSpellingSession()
 				}
 				m = m.refreshMCOptionsForCurrentPrompt()
 				return m, nil
 			}
+
 			// Process answer for fill-in
 			if m.isMultipleChoice {
 				// ignore enter for MC
@@ -184,12 +182,9 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Auto-finalize when we've answered all prompts
 			if len(m.answers) == len(m.prompts) {
-				updatedStats, _, _ := game.RunSpellingSession(context.Background(), m.playerStats, m.answers)
-				m.playerStats = updatedStats
-				m.hpAnimator.Sync(m.playerStats.HP)
-				m.showFeedback = true
-				return m, func() tea.Msg { return SpellingToTownMsg{} }
+				return m.finalizeSpellingSession()
 			}
+
 			m.showFeedback = true
 			return m, nil
 
@@ -237,6 +232,20 @@ func (m SpellingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+func (m SpellingModel) finalizeSpellingSession() (SpellingModel, tea.Cmd) {
+	updatedStats, summary, err := game.RunSpellingSession(context.Background(), m.playerStats, m.answers)
+	if err != nil {
+		m.feedback = fmt.Sprintf("Session error: %v", err)
+		m.showFeedback = true
+		return m, nil
+	}
+	m.playerStats = updatedStats
+	m.hpAnimator.Sync(m.playerStats.HP)
+	m.showFeedback = true
+	m.answerInput.SetValue("")
+	return m, func() tea.Msg { return SessionResultMsg{Stats: m.playerStats, Summary: summary} }
 }
 
 func (m SpellingModel) View() string {

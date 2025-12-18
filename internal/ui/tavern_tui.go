@@ -35,6 +35,7 @@ type TavernModel struct {
 	feedback     string
 	showFeedback bool
 	quitting     bool
+	lastSummary  game.SessionSummary
 
 	langPref string // "en"/"ja"
 }
@@ -167,13 +168,15 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		updatedStats, summary, _ := RunTavernSession(context.Background(), m.playerStats, outcomes)
 		m.playerStats = updatedStats
+		m.lastSummary = toGameSessionSummary(summary)
 		m.feedback = fmt.Sprintf(i18n.T("tavern_finished_format"), summary.ExpDelta, summary.GoldDelta, summary.Correct)
+
 		m.showFeedback = true
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
 		case "esc":
@@ -181,8 +184,9 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.showFeedback {
 				if m.currentTurn >= len(m.turns) {
-					return m, func() tea.Msg { return TownToRootMsg{} }
+					return m, func() tea.Msg { return SessionResultMsg{Stats: m.playerStats, Summary: m.lastSummary} }
 				}
+
 				m.showFeedback = false
 				m.input.SetValue("")
 				return m, nil
@@ -205,6 +209,21 @@ func (m TavernModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input, cmd = m.input.Update(msg)
 	}
 	return m, cmd
+}
+
+func toGameSessionSummary(summary SessionSummary) game.SessionSummary {
+	return game.SessionSummary{
+		Mode:         summary.Mode,
+		Correct:      summary.Correct,
+		ExpDelta:     summary.ExpDelta,
+		HPDelta:      summary.HPDelta,
+		GoldDelta:    summary.GoldDelta,
+		DefenseDelta: summary.DefenseDelta,
+		BestCombo:    summary.BestCombo,
+		Fainted:      summary.Fainted,
+		LeveledUp:    summary.LeveledUp,
+		Note:         summary.Note,
+	}
 }
 
 func (m TavernModel) View() string {

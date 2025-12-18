@@ -134,11 +134,7 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.currentIndex++
 				if m.currentIndex >= len(m.items) {
 					// end session
-					updatedStats, _, _ := game.RunListeningSession(context.Background(), m.playerStats, m.answers)
-					m.playerStats = updatedStats
-					m.hpAnimator.Sync(m.playerStats.HP)
-					m.showFeedback = true
-					return m, func() tea.Msg { return ListeningToTownMsg{} }
+					return m.finalizeListeningSession()
 				}
 
 				// speak next prompt
@@ -153,11 +149,7 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.answers = append(m.answers, game.ListeningAnswer{Correct: isCorrect})
 				// Auto-finalize if we've answered all items
 				if len(m.answers) == len(m.items) {
-					updatedStats, _, _ := game.RunListeningSession(context.Background(), m.playerStats, m.answers)
-					m.playerStats = updatedStats
-					m.hpAnimator.Sync(m.playerStats.HP)
-					m.showFeedback = true
-					return m, func() tea.Msg { return ListeningToTownMsg{} }
+					return m.finalizeListeningSession()
 				}
 
 				if isCorrect {
@@ -182,6 +174,19 @@ func (m ListeningModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+func (m ListeningModel) finalizeListeningSession() (ListeningModel, tea.Cmd) {
+	updatedStats, summary, err := game.RunListeningSession(context.Background(), m.playerStats, m.answers)
+	if err != nil {
+		m.feedback = fmt.Sprintf("Session error: %v", err)
+		m.showFeedback = true
+		return m, nil
+	}
+	m.playerStats = updatedStats
+	m.hpAnimator.Sync(m.playerStats.HP)
+	m.showFeedback = true
+	return m, func() tea.Msg { return SessionResultMsg{Stats: m.playerStats, Summary: summary} }
 }
 
 func (m ListeningModel) View() string {

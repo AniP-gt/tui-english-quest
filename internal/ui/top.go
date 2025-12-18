@@ -30,6 +30,7 @@ const (
 	StateTavern    // Added StateTavern
 	StateSpelling  // Spelling mock screen
 	StateListening // Listening mock screen
+	StateResult    // Added Result screen
 	StateAnalysis  // AI Analysis screen
 	StateHistory   // History screen
 	StateEquipment // Equipment screen
@@ -58,6 +59,13 @@ type SpellingToTownMsg struct{}
 type TownToListeningMsg struct{}
 type ListeningToTownMsg struct{}
 
+type SessionResultMsg struct {
+	Stats   game.Stats
+	Summary game.SessionSummary
+}
+
+type ResultToTownMsg struct{}
+
 // RootModel is the top-level model that manages different application states.
 type RootModel struct {
 	Status            game.Stats
@@ -77,6 +85,7 @@ type RootModel struct {
 	equipment         EquipmentModel
 	status            StatusModel
 	settings          SettingsModel
+	result            ResultModel
 	geminiClient      *services.GeminiClient // Add GeminiClient
 	LangPref          string
 	// Terminal dimensions tracked from tea.WindowSizeMsg
@@ -117,6 +126,7 @@ func NewRootModel() RootModel {
 		equipment:    NewEquipmentModel(stats),
 		status:       NewStatusModel(stats),
 		settings:     NewSettingsModel(stats),
+		result:       NewResultModel(stats, game.SessionSummary{}),
 		geminiClient: gc,
 		LangPref:     cfg.LangPref,
 	}
@@ -175,6 +185,15 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// reinitialize models that depend on language pref
 		m.tavern = NewTavernModel(m.Status, m.geminiClient, m.LangPref)
 		return m, nil
+	case SessionResultMsg:
+		m.Status = msg.Stats
+		m.result = NewResultModel(msg.Stats, msg.Summary)
+		m.state = StateResult
+		return m, m.result.Init()
+	case ResultToTownMsg:
+		m.state = StateTown
+		m.town = NewTownModel(m.Status, m.geminiClient)
+		return m, nil
 	case TownToBattleMsg: // Added TownToBattleMsg handling
 		m.state = StateBattle
 		m.battle = NewBattleModel(m.Status, m.geminiClient) // Initialize BattleModel
@@ -229,6 +248,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newListeningModel, cmd := m.listening.Update(msg)
 		m.listening = newListeningModel.(ListeningModel)
 		m.Status = m.listening.playerStats
+		return m, cmd
+	case StateResult:
+		newResultModel, cmd := m.result.Update(msg)
+		m.result = newResultModel.(ResultModel)
 		return m, cmd
 	case StateAnalysis:
 		newAnalysisModel, cmd := m.analysis.Update(msg)
@@ -373,6 +396,8 @@ func (m RootModel) View() string {
 		out = m.spelling.View()
 	case StateListening:
 		out = m.listening.View()
+	case StateResult:
+		out = m.result.View()
 	case StateAnalysis:
 		out = m.viewAnalysis()
 	case StateHistory:
