@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"log"
 
 	"tui-english-quest/internal/db"
 )
@@ -117,6 +118,7 @@ func RunVocabSession(ctx context.Context, stats Stats, answers []VocabAnswer) (S
 	summary.LeveledUp = LeveledUp(before, stats)
 
 	rec := db.SessionRecord{
+		PlayerID:     db.CurrentProfileID(),
 		Mode:         "vocab",
 		CorrectCount: summary.Correct,
 		BestCombo:    bestCombo,
@@ -126,6 +128,9 @@ func RunVocabSession(ctx context.Context, stats Stats, answers []VocabAnswer) (S
 		LeveledUp:    summary.LeveledUp,
 	}
 	_ = db.SaveSession(ctx, rec) // Assuming SaveSession is in db package
+	if err := SaveStats(ctx, stats); err != nil {
+		log.Printf("failed to persist profile: %v", err)
+	}
 	return stats, summary, nil
 }
 
@@ -201,6 +206,7 @@ func RunGrammarSession(ctx context.Context, stats Stats, answers []GrammarAnswer
 	summary.LeveledUp = LeveledUp(before, stats)
 
 	rec := db.SessionRecord{
+		PlayerID:     db.CurrentProfileID(),
 		Mode:         "grammar",
 		CorrectCount: summary.Correct,
 		ExpGained:    sessionExp,
@@ -210,6 +216,9 @@ func RunGrammarSession(ctx context.Context, stats Stats, answers []GrammarAnswer
 		LeveledUp:    summary.LeveledUp,
 	}
 	_ = db.SaveSession(ctx, rec)
+	if err := SaveStats(ctx, stats); err != nil {
+		log.Printf("failed to persist profile: %v", err)
+	}
 	return stats, summary, nil
 }
 
@@ -304,6 +313,7 @@ func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAn
 	summary.LeveledUp = LeveledUp(before, stats)
 
 	rec := db.SessionRecord{
+		PlayerID:     db.CurrentProfileID(),
 		Mode:         "listening",
 		CorrectCount: summary.Correct,
 		ExpGained:    sessionExp,
@@ -312,5 +322,8 @@ func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAn
 		LeveledUp:    summary.LeveledUp,
 	}
 	_ = db.SaveSession(ctx, rec)
+	if err := SaveStats(ctx, stats); err != nil {
+		log.Printf("failed to persist profile: %v", err)
+	}
 	return stats, summary, nil
 }

@@ -13,11 +13,12 @@ type Config struct {
 	LangPref            string `json:"lang_pref"` // "en"/"ja" ("both" removed)
 	ApiKey              string `json:"api_key"`
 	QuestionsPerSession int    `json:"questions_per_session"`
+	ProfileID           string `json:"profile_id"`
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
-	return Config{LangPref: "en", ApiKey: "", QuestionsPerSession: 5}
+	return Config{LangPref: "en", ApiKey: "", QuestionsPerSession: 5, ProfileID: ""}
 }
 
 // ConfigPath returns the platform-appropriate path for the config file.
