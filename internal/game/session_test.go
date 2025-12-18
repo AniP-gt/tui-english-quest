@@ -72,3 +72,72 @@ func TestRunVocabSession_FailOnTooManyMisses(t *testing.T) {
 		t.Fatalf("expected updated HP to be half MaxHP after fainting, got %d", updated.HP)
 	}
 }
+
+func TestRunGrammarSession_AllCorrectGivesExp(t *testing.T) {
+	stats := DefaultStats()
+	stats.MaxHP = MaxHPForLevel(stats.Level)
+	stats.HP = stats.MaxHP
+	answers := make([]GrammarAnswer, 5)
+	for i := range answers {
+		answers[i] = GrammarAnswer{Correct: true}
+	}
+	updated, summary, err := RunGrammarSession(context.Background(), stats, answers)
+	if err != nil {
+		t.Fatalf("RunGrammarSession error: %v", err)
+	}
+	if summary.ExpDelta <= 0 {
+		t.Fatalf("expected positive ExpDelta for grammar clear, got %d", summary.ExpDelta)
+	}
+	if summary.Correct != len(answers) {
+		t.Fatalf("expected correct count %d, got %d", len(answers), summary.Correct)
+	}
+	if updated.Exp <= stats.Exp {
+		t.Fatalf("expected Exp to increase after grammar clear, before %d after %d", stats.Exp, updated.Exp)
+	}
+}
+
+func TestRunSpellingSession_PerfectIncreasesExp(t *testing.T) {
+	stats := DefaultStats()
+	stats.MaxHP = MaxHPForLevel(stats.Level)
+	stats.HP = stats.MaxHP
+	outcomes := []SpellingOutcome{SpellingPerfect, SpellingPerfect}
+	updated, summary, err := RunSpellingSession(context.Background(), stats, outcomes)
+	if err != nil {
+		t.Fatalf("RunSpellingSession error: %v", err)
+	}
+	if summary.ExpDelta != 10 {
+		t.Fatalf("expected ExpDelta 10, got %d", summary.ExpDelta)
+	}
+	if updated.Exp != 10 {
+		t.Fatalf("expected Exp stat to be 10, got %d", updated.Exp)
+	}
+	if summary.HPDelta != 0 {
+		t.Fatalf("expected HPDelta 0 for perfect results, got %d", summary.HPDelta)
+	}
+	if summary.Fainted {
+		t.Fatalf("did not expect faint on all perfect answers")
+	}
+}
+
+func TestRunSpellingSession_FaintAppliesPenalty(t *testing.T) {
+	stats := DefaultStats()
+	stats.MaxHP = MaxHPForLevel(stats.Level)
+	stats.HP = 10 // force low HP to trigger faint
+	outcomes := []SpellingOutcome{SpellingFail}
+	updated, summary, err := RunSpellingSession(context.Background(), stats, outcomes)
+	if err != nil {
+		t.Fatalf("RunSpellingSession error: %v", err)
+	}
+	if !summary.Fainted {
+		t.Fatalf("expected faint on fatal damage")
+	}
+	if summary.HPDelta != -10 {
+		t.Fatalf("expected HPDelta -10 before penalty, got %d", summary.HPDelta)
+	}
+	if updated.HP != stats.MaxHP/2 {
+		t.Fatalf("expected half MaxHP after faint penalty, got %d", updated.HP)
+	}
+	if summary.ExpDelta != 1 {
+		t.Fatalf("expected ExpDelta 1 for fail, got %d", summary.ExpDelta)
+	}
+}

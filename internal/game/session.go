@@ -254,7 +254,66 @@ const (
 )
 
 func RunSpellingSession(ctx context.Context, stats Stats, outcomes []SpellingOutcome) (Stats, SessionSummary, error) {
-	return stats, SessionSummary{}, nil
+	summary := SessionSummary{Mode: "spelling"}
+	before := stats
+	expDelta := 0
+	hpDelta := 0
+	for _, o := range outcomes {
+		switch o {
+		case SpellingPerfect:
+			expDelta += 5
+			summary.Correct++
+		case SpellingNear:
+			expDelta += 2
+			var delta int
+			stats, delta = applyDamageDelta(stats, 5)
+			hpDelta += delta
+		case SpellingFail:
+			expDelta += 1
+			var delta int
+			stats, delta = applyDamageDelta(stats, 12)
+			hpDelta += delta
+		default:
+			expDelta += 1
+		}
+	}
+
+	stats = GainExp(stats, expDelta)
+	stats, fainted := applyFaintIfNeeded(stats)
+
+	summary.ExpDelta = expDelta
+	summary.HPDelta = hpDelta
+	summary.Fainted = fainted
+	summary.LeveledUp = LeveledUp(before, stats)
+
+	rec := db.SessionRecord{
+		PlayerID:     db.CurrentProfileID(),
+		Mode:         "spelling",
+		CorrectCount: summary.Correct,
+		ExpGained:    expDelta,
+		HPDelta:      hpDelta,
+		Fainted:      fainted,
+		LeveledUp:    summary.LeveledUp,
+	}
+	_ = db.SaveSession(ctx, rec)
+	if err := SaveStats(ctx, stats); err != nil {
+		log.Printf("failed to persist profile: %v", err)
+	}
+	return stats, summary, nil
+}
+
+func applyDamageDelta(s Stats, dmg int) (Stats, int) {
+	prev := s.HP
+	s = ApplyDamage(s, dmg)
+	return s, s.HP - prev
+}
+
+func applyFaintIfNeeded(s Stats) (Stats, bool) {
+	if Fainted(s) {
+		s = ApplyFaintPenalty(s)
+		return s, true
+	}
+	return s, false
 }
 
 type ListeningAnswer struct{ Correct bool }

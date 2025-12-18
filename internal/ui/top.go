@@ -182,22 +182,27 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.town = NewTownModel(m.Status, m.geminiClient)
 		return m, nil
 	case TownToBattleMsg: // Added TownToBattleMsg handling
+		m.Status = game.FullHeal(m.Status)
 		m.state = StateBattle
 		m.battle = NewBattleModel(m.Status, m.geminiClient) // Initialize BattleModel
 		return m, m.battle.Init()
 	case TownToDungeonMsg: // Added TownToDungeonMsg handling
+		m.Status = game.FullHeal(m.Status)
 		m.state = StateDungeon
 		m.dungeon = NewDungeonModel(m.Status, m.geminiClient) // Initialize DungeonModel
 		return m, m.dungeon.Init()
 	case TownToTavernMsg:
+		m.Status = game.FullHeal(m.Status)
 		m.state = StateTavern
 		m.tavern = NewTavernModel(m.Status, m.geminiClient, m.LangPref)
 		return m, m.tavern.Init()
 	case TownToSpellingMsg:
+		m.Status = game.FullHeal(m.Status)
 		m.state = StateSpelling
 		m.spelling = NewSpellingModel(m.Status, m.geminiClient)
 		return m, m.spelling.Init()
 	case TownToListeningMsg:
+		m.Status = game.FullHeal(m.Status)
 		m.state = StateListening
 		m.listening = NewListeningModel(m.Status, m.geminiClient)
 		return m, m.listening.Init()
