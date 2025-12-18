@@ -59,11 +59,6 @@ func (m StatusModel) View() string {
 	lines += components.RenderKeyValue("Level:", fmt.Sprintf("%d", s.Level), labelWidth) + "\n"
 	lines += components.RenderKeyValue("Experience:", fmt.Sprintf("%d / %d", s.Exp, s.Next), labelWidth) + "\n"
 	lines += components.RenderKeyValue("HP:", fmt.Sprintf("%d / %d", s.HP, s.MaxHP), labelWidth) + "\n"
-	lines += components.RenderKeyValue("Attack:", fmt.Sprintf("%d", s.Attack), labelWidth) + "\n"
-	lines += components.RenderKeyValue("Defense:", fmt.Sprintf("%.1f", s.Defense), labelWidth) + "\n"
-	lines += components.RenderKeyValue("Combo:", fmt.Sprintf("%d", s.Combo), labelWidth) + "\n"
-	lines += components.RenderKeyValue("Streak:", fmt.Sprintf("%d days", s.Streak), labelWidth) + "\n"
-	lines += components.RenderKeyValue("Gold:", fmt.Sprintf("%d", s.Gold), labelWidth) + "\n"
 
 	// Badges or achievements (placeholder)
 	lines += "\nAchievements:\n\n"

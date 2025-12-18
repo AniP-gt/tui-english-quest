@@ -64,7 +64,6 @@ func NewTownModel(stats game.Stats, gc *services.GeminiClient) TownModel {
 			"town_menu_conversation_tavern",
 			"town_menu_spelling_challenge",
 			"town_menu_listening_cave",
-			"town_menu_equipment",
 			"town_menu_ai_analysis",
 			"town_menu_history",
 			"town_menu_status",
@@ -113,14 +112,12 @@ func (m TownModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 4:
 				return m, func() tea.Msg { return TownToListeningMsg{} }
 			case 5:
-				return m, func() tea.Msg { return TownToEquipmentMsg{} }
-			case 6:
 				return m, func() tea.Msg { return TownToAnalysisMsg{} }
-			case 7:
+			case 6:
 				return m, func() tea.Msg { return TownToHistoryMsg{} }
-			case 8:
+			case 7:
 				return m, func() tea.Msg { return TownToStatusMsg{} }
-			case 9:
+			case 8:
 				return m, func() tea.Msg { return TownToSettingsMsg{} }
 			default:
 				return m, func() tea.Msg { return TownToRootMsg{} }

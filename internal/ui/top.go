@@ -34,7 +34,6 @@ const (
 	StateResult    // Added Result screen
 	StateAnalysis  // AI Analysis screen
 	StateHistory   // History screen
-	StateEquipment // Equipment screen
 	StateStatus    // Status screen
 	StateSettings  // Settings screen
 )
@@ -44,8 +43,6 @@ type AnalysisToTownMsg struct{}
 type TownToAnalysisMsg struct{}
 type HistoryToTownMsg struct{}
 type TownToHistoryMsg struct{}
-type EquipmentToTownMsg struct{} // Fixed syntax error
-type TownToEquipmentMsg struct{}
 type StatusToTownMsg struct{}
 type TownToStatusMsg struct{}
 type SettingsToTownMsg struct{}
@@ -83,7 +80,6 @@ type RootModel struct {
 	listening         ListeningModel // ListeningModel (mock)
 	analysis          AnalysisModel  // Embed AnalysisModel
 	history           HistoryModel
-	equipment         EquipmentModel
 	status            StatusModel
 	settings          SettingsModel
 	result            ResultModel
@@ -122,7 +118,6 @@ func NewRootModel(stats game.Stats, cfg config.Config) RootModel {
 		listening:    NewListeningModel(stats, gc),
 		analysis:     NewAnalysisModel(stats, gc), // Pass GeminiClient
 		history:      NewHistoryModel(stats),
-		equipment:    NewEquipmentModel(stats),
 		status:       NewStatusModel(stats),
 		settings:     NewSettingsModel(stats),
 		result:       NewResultModel(stats, game.SessionSummary{}),
@@ -153,13 +148,6 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history = NewHistoryModel(m.Status)
 		return m, nil
 	case HistoryToTownMsg:
-		m.state = StateTown
-		return m, nil
-	case TownToEquipmentMsg:
-		m.state = StateEquipment
-		m.equipment = NewEquipmentModel(m.Status)
-		return m, nil
-	case EquipmentToTownMsg:
 		m.state = StateTown
 		return m, nil
 	case TownToStatusMsg:
@@ -261,11 +249,6 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newHistoryModel, cmd := m.history.Update(msg)
 		m.history = newHistoryModel.(HistoryModel)
 		m.Status = m.history.playerStats
-		return m, cmd
-	case StateEquipment:
-		newEquipmentModel, cmd := m.equipment.Update(msg)
-		m.equipment = newEquipmentModel.(EquipmentModel)
-		m.Status = m.equipment.playerStats
 		return m, cmd
 	case StateStatus:
 		newStatusModel, cmd := m.status.Update(msg)
@@ -404,8 +387,6 @@ func (m RootModel) View() string {
 		out = m.viewAnalysis()
 	case StateHistory:
 		out = m.viewHistory()
-	case StateEquipment:
-		out = m.viewEquipment()
 	case StateStatus:
 		out = m.viewStatus()
 	case StateSettings:
@@ -475,10 +456,6 @@ func (m RootModel) viewAnalysis() string {
 
 func (m RootModel) viewHistory() string {
 	return m.history.View()
-}
-
-func (m RootModel) viewEquipment() string {
-	return m.equipment.View()
 }
 
 func (m RootModel) viewStatus() string {
