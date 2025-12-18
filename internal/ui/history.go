@@ -29,12 +29,15 @@ type HistoryModel struct {
 
 // NewHistoryModel creates a new HistoryModel.
 func NewHistoryModel(stats game.Stats) HistoryModel {
-	// Fetch recent sessions (limit 20 for display)
 	ctx := context.Background()
-	sessions, err := db.ListSessions(ctx, stats.Name, 20) // Using name as playerID
-	if err != nil {
-		// Handle error, perhaps show empty list
-		sessions = []db.SessionRecord{}
+	playerID := db.CurrentProfileID()
+	sessions := []db.SessionRecord{}
+	if playerID != "" {
+		var err error
+		sessions, err = db.ListSessions(ctx, playerID, 20)
+		if err != nil {
+			sessions = []db.SessionRecord{}
+		}
 	}
 	return HistoryModel{
 		playerStats: stats,

@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -232,4 +234,23 @@ func boolToInt(b bool) int {
 
 func intToBool(i int) bool {
 	return i != 0
+}
+
+// NewSessionRecord initializes a history record with IDs and timestamps prefilled.
+func NewSessionRecord(mode string, startedAt, endedAt time.Time) SessionRecord {
+	return SessionRecord{
+		ID:        newSessionID(),
+		PlayerID:  CurrentProfileID(),
+		Mode:      mode,
+		StartedAt: startedAt,
+		EndedAt:   endedAt,
+	}
+}
+
+func newSessionID() string {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return fmt.Sprintf("session-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(buf[:])
 }

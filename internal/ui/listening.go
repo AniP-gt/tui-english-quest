@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	"tui-english-quest/internal/db"
 	"tui-english-quest/internal/game"
@@ -19,6 +20,7 @@ func RunListeningSession(ctx context.Context, stats game.Stats, answers []Listen
 		return stats, SessionSummary{Mode: "listening", Note: "Audio device not available. Skipping."}, nil
 	}
 
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "listening"}
 	before := stats
 	expDelta := 0
@@ -43,14 +45,13 @@ func RunListeningSession(ctx context.Context, stats game.Stats, answers []Listen
 	summary.Fainted = fainted
 	summary.LeveledUp = leveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		Mode:         "listening",
-		CorrectCount: summary.Correct,
-		ExpGained:    expDelta,
-		HPDelta:      hpDelta,
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("listening", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.ExpGained = summary.ExpDelta
+	rec.HPDelta = summary.HPDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
 	_ = db.SaveSession(ctx, rec)
 	return stats, summary, nil
 }
