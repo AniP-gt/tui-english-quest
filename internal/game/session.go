@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"log"
+	"time"
 
 	"tui-english-quest/internal/db"
 )
@@ -47,6 +48,7 @@ func LeveledUp(before Stats, after Stats) bool {
 
 // RunVocabSession applies vocabulary battle rules for 5 questions.
 func RunVocabSession(ctx context.Context, stats Stats, answers []VocabAnswer) (Stats, SessionSummary, error) {
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "vocab"}
 	before := stats
 	combo := stats.Combo
@@ -117,17 +119,15 @@ func RunVocabSession(ctx context.Context, stats Stats, answers []VocabAnswer) (S
 	summary.Fainted = fainted
 	summary.LeveledUp = LeveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		PlayerID:     db.CurrentProfileID(),
-		Mode:         "vocab",
-		CorrectCount: summary.Correct,
-		BestCombo:    bestCombo,
-		ExpGained:    sessionExp,
-		HPDelta:      hpDelta,
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
-	_ = db.SaveSession(ctx, rec) // Assuming SaveSession is in db package
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("vocab", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.BestCombo = summary.BestCombo
+	rec.ExpGained = summary.ExpDelta
+	rec.HPDelta = summary.HPDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
+	_ = db.SaveSession(ctx, rec)
 	if err := SaveStats(ctx, stats); err != nil {
 		log.Printf("failed to persist profile: %v", err)
 	}
@@ -146,6 +146,7 @@ func countVocabCorrect(ans []VocabAnswer) int {
 
 // RunGrammarSession applies grammar dungeon rules for 5 floors.
 func RunGrammarSession(ctx context.Context, stats Stats, answers []GrammarAnswer) (Stats, SessionSummary, error) {
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "grammar"}
 	before := stats
 	baseExp := 3
@@ -205,16 +206,14 @@ func RunGrammarSession(ctx context.Context, stats Stats, answers []GrammarAnswer
 	summary.Fainted = fainted
 	summary.LeveledUp = LeveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		PlayerID:     db.CurrentProfileID(),
-		Mode:         "grammar",
-		CorrectCount: summary.Correct,
-		ExpGained:    sessionExp,
-		HPDelta:      hpDelta,
-		DefenseDelta: defDelta, // Assuming DefenseDelta is added to SessionRecord
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("grammar", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.ExpGained = summary.ExpDelta
+	rec.HPDelta = summary.HPDelta
+	rec.DefenseDelta = summary.DefenseDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
 	_ = db.SaveSession(ctx, rec)
 	if err := SaveStats(ctx, stats); err != nil {
 		log.Printf("failed to persist profile: %v", err)
@@ -254,6 +253,7 @@ const (
 )
 
 func RunSpellingSession(ctx context.Context, stats Stats, outcomes []SpellingOutcome) (Stats, SessionSummary, error) {
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "spelling"}
 	before := stats
 	expDelta := 0
@@ -286,15 +286,13 @@ func RunSpellingSession(ctx context.Context, stats Stats, outcomes []SpellingOut
 	summary.Fainted = fainted
 	summary.LeveledUp = LeveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		PlayerID:     db.CurrentProfileID(),
-		Mode:         "spelling",
-		CorrectCount: summary.Correct,
-		ExpGained:    expDelta,
-		HPDelta:      hpDelta,
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("spelling", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.ExpGained = summary.ExpDelta
+	rec.HPDelta = summary.HPDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
 	_ = db.SaveSession(ctx, rec)
 	if err := SaveStats(ctx, stats); err != nil {
 		log.Printf("failed to persist profile: %v", err)
@@ -319,6 +317,7 @@ func applyFaintIfNeeded(s Stats) (Stats, bool) {
 type ListeningAnswer struct{ Correct bool }
 
 func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAnswer) (Stats, SessionSummary, error) {
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "listening"}
 	before := stats
 	baseExp := 5
@@ -371,15 +370,13 @@ func RunListeningSession(ctx context.Context, stats Stats, answers []ListeningAn
 	summary.Fainted = fainted
 	summary.LeveledUp = LeveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		PlayerID:     db.CurrentProfileID(),
-		Mode:         "listening",
-		CorrectCount: summary.Correct,
-		ExpGained:    sessionExp,
-		HPDelta:      hpDelta,
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("listening", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.ExpGained = summary.ExpDelta
+	rec.HPDelta = summary.HPDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
 	_ = db.SaveSession(ctx, rec)
 	if err := SaveStats(ctx, stats); err != nil {
 		log.Printf("failed to persist profile: %v", err)

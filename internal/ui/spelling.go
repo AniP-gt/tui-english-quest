@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	"tui-english-quest/internal/db"
 	"tui-english-quest/internal/game"
@@ -18,6 +19,7 @@ const (
 
 // RunSpellingSession applies spelling challenge rules for 5 prompts.
 func RunSpellingSession(ctx context.Context, stats game.Stats, outcomes []SpellingOutcome) (game.Stats, SessionSummary, error) {
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "spelling"}
 	before := stats
 	expDelta := 0
@@ -48,14 +50,13 @@ func RunSpellingSession(ctx context.Context, stats game.Stats, outcomes []Spelli
 	summary.Fainted = fainted
 	summary.LeveledUp = leveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		Mode:         "spelling",
-		CorrectCount: summary.Correct,
-		ExpGained:    expDelta,
-		HPDelta:      hpDelta,
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("spelling", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.ExpGained = summary.ExpDelta
+	rec.HPDelta = summary.HPDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
 	_ = db.SaveSession(ctx, rec)
 	return stats, summary, nil
 }

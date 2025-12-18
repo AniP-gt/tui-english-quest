@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	"tui-english-quest/internal/db"
 	"tui-english-quest/internal/game"
@@ -18,6 +19,7 @@ const (
 
 // RunTavernSession applies conversation tavern rules for 5 turns.
 func RunTavernSession(ctx context.Context, stats game.Stats, outcomes []TavernOutcome) (game.Stats, SessionSummary, error) {
+	startedAt := time.Now()
 	summary := SessionSummary{Mode: "tavern"}
 	before := stats
 	expDelta := 0
@@ -45,14 +47,13 @@ func RunTavernSession(ctx context.Context, stats game.Stats, outcomes []TavernOu
 	summary.Fainted = fainted
 	summary.LeveledUp = leveledUp(before, stats)
 
-	rec := db.SessionRecord{
-		Mode:         "tavern",
-		CorrectCount: summary.Correct,
-		ExpGained:    expDelta,
-		GoldDelta:    goldDelta,
-		Fainted:      fainted,
-		LeveledUp:    summary.LeveledUp,
-	}
+	endedAt := time.Now()
+	rec := db.NewSessionRecord("tavern", startedAt, endedAt)
+	rec.CorrectCount = summary.Correct
+	rec.ExpGained = summary.ExpDelta
+	rec.GoldDelta = summary.GoldDelta
+	rec.Fainted = summary.Fainted
+	rec.LeveledUp = summary.LeveledUp
 	_ = db.SaveSession(ctx, rec)
 	return stats, summary, nil
 }
