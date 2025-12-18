@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -94,11 +95,8 @@ type RootModel struct {
 }
 
 // NewRootModel creates the top-level model.
-func NewRootModel() RootModel {
-	cfg, _ := config.LoadConfig()
+func NewRootModel(stats game.Stats, cfg config.Config) RootModel {
 	i18n.SetLang(cfg.LangPref)
-
-	stats := game.DefaultStats()
 
 	// Initialize Gemini Client
 	gc, err := services.NewGeminiClient(context.Background())
@@ -110,6 +108,7 @@ func NewRootModel() RootModel {
 
 	return RootModel{
 		Status: stats,
+
 		menu:   []string{i18n.T("menu_start"), i18n.T("menu_new"), i18n.T("menu_quit")},
 		cursor: 0,
 		note:   i18n.T("note_newgame"),
@@ -364,6 +363,9 @@ func (m RootModel) cancelNewGameConfirmation() RootModel {
 
 func (m RootModel) startNewGame() RootModel {
 	m.Status = game.DefaultStats()
+	if err := game.SaveStats(context.Background(), m.Status); err != nil {
+		log.Printf("failed to persist stats after new game: %v", err)
+	}
 	m.note = i18n.T("note_newgame")
 	m.town = NewTownModel(m.Status, m.geminiClient)
 	m.state = StateTown

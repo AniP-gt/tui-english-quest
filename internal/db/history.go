@@ -39,25 +39,28 @@ func InitDB(dataSourceName string) error {
 	}
 
 	schema := `
-	CREATE TABLE IF NOT EXISTS profiles (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		class TEXT NOT NULL,
-		level INTEGER NOT NULL,
-		exp INTEGER NOT NULL,
-		next_level_exp INTEGER NOT NULL,
-		hp INTEGER NOT NULL,
-		max_hp INTEGER NOT NULL,
-		attack INTEGER NOT NULL,
-		defense REAL NOT NULL,
-		combo INTEGER NOT NULL,
-		streak_days INTEGER NOT NULL,
-		gold INTEGER NOT NULL,
-		ui_language TEXT,
-		explanation_language TEXT,
-		problem_language TEXT,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
+  CREATE TABLE IF NOT EXISTS profiles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        class TEXT NOT NULL,
+        level INTEGER NOT NULL,
+        exp INTEGER NOT NULL,
+        next_level_exp INTEGER NOT NULL,
+        hp INTEGER NOT NULL,
+        max_hp INTEGER NOT NULL,
+        attack INTEGER NOT NULL,
+        defense REAL NOT NULL,
+        combo INTEGER NOT NULL,
+        streak_days INTEGER NOT NULL,
+        gold INTEGER NOT NULL,
+        exp_boost REAL NOT NULL DEFAULT 0,
+        damage_reduction REAL NOT NULL DEFAULT 0,
+        ui_language TEXT,
+        explanation_language TEXT,
+        problem_language TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
 
 	CREATE TABLE IF NOT EXISTS sessions (
 		id TEXT PRIMARY KEY,
@@ -103,19 +106,28 @@ func InitDB(dataSourceName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create tables: %w", err)
 	}
+	if err := ensureProfileColumn("exp_boost", "exp_boost REAL NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if err := ensureProfileColumn("damage_reduction", "damage_reduction REAL NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
 	return nil
 }
 
 // SaveSession persists a session record to the database.
 func SaveSession(ctx context.Context, rec SessionRecord) error {
-	// If DB is not initialized (e.g., in unit tests), skip persisting.
 	if dbConn == nil {
 		return nil
 	}
+	if rec.PlayerID == "" {
+		return nil
+	}
 	stmt, err := dbConn.PrepareContext(ctx, `
-			INSERT INTO sessions (id, player_id, mode, started_at, ended_at, question_set_id, correct_count, best_combo, exp_gained, exp_lost, hp_delta, gold_delta, defense_delta, fainted, leveled_up)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`)
+            INSERT INTO sessions (id, player_id, mode, started_at, ended_at, question_set_id, correct_count, best_combo, exp_gained, exp_lost, hp_delta, gold_delta, defense_delta, fainted, leveled_up)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
@@ -135,12 +147,12 @@ func SaveSession(ctx context.Context, rec SessionRecord) error {
 // ListSessions fetches recent session records for a player.
 func ListSessions(ctx context.Context, playerID string, limit int) ([]SessionRecord, error) {
 	rows, err := dbConn.QueryContext(ctx, `
-		SELECT id, player_id, mode, started_at, ended_at, question_set_id, correct_count, best_combo, exp_gained, exp_lost, hp_delta, gold_delta, defense_delta, fainted, leveled_up
-		FROM sessions
-		WHERE player_id = ?
-		ORDER BY ended_at DESC
-		LIMIT ?
-	`, playerID, limit)
+        SELECT id, player_id, mode, started_at, ended_at, question_set_id, correct_count, best_combo, exp_gained, exp_lost, hp_delta, gold_delta, defense_delta, fainted, leveled_up
+        FROM sessions
+        WHERE player_id = ?
+        ORDER BY ended_at DESC
+        LIMIT ?
+    `, playerID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sessions: %w", err)
 	}
@@ -163,6 +175,52 @@ func ListSessions(ctx context.Context, playerID string, limit int) ([]SessionRec
 		sessions = append(sessions, rec)
 	}
 	return sessions, nil
+}
+
+func ensureProfileColumn(name, definition string) error {
+	if dbConn == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	exists, err := profileColumnExists(name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	_, err = dbConn.Exec(fmt.Sprintf("ALTER TABLE profiles ADD COLUMN %s", definition))
+	if err != nil {
+		return fmt.Errorf("failed to add column %s: %w", name, err)
+	}
+	return nil
+}
+
+func profileColumnExists(name string) (bool, error) {
+	if dbConn == nil {
+		return false, fmt.Errorf("database not initialized")
+	}
+	rows, err := dbConn.Query(`PRAGMA table_info(profiles)`)
+	if err != nil {
+		return false, fmt.Errorf("failed to query table info: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var colName string
+		var colType string
+		var notnull int
+		var dfltValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &colName, &colType, &notnull, &dfltValue, &pk); err != nil {
+			return false, fmt.Errorf("failed to scan table info: %w", err)
+		}
+		if colName == name {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func boolToInt(b bool) int {
