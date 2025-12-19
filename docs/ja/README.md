@@ -8,6 +8,12 @@
 
 TUI English Quest はターミナルで動く RPG 風の英語学習アプリです。タイトル画面から街に出向き、単語バトル・文法ダンジョン・会話タバーン・スペリングチャレンジ・リスニング問題といった学習モードを選択し、装備・AI分析・履歴・ステータス・設定画面も活用することで、短時間で完結するセッションを繰り返します。各セッションでは Gemini（`gemini-2.5-flash`）から 5 問が生成され、オフラインで回答したのち EXP・HP・コンボ・ストリーク・ゴールドが更新され、弱点分析や履歴に記録されます。
 
+<img width="735" height="412" alt="Screenshot 2025-12-19 at 14 20 38" src="https://github.com/user-attachments/assets/fd7856f9-33bb-4af2-b9f1-6664194c89c2" />
+
+<img width="732" height="530" alt="Screenshot 2025-12-19 at 14 21 00" src="https://github.com/user-attachments/assets/e9742ebe-5481-4fe9-8859-78ddf3b31d48" />
+
+
+
 ## インストールと依存
 
 1. **Go 1.21+ と SQLite** が必要です。Go の開発環境を整え、必要であれば `sqlite3` コマンドもインストールしてください。
