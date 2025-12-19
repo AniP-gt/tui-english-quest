@@ -10,6 +10,11 @@
 
 TUI English Quest is a terminal-based RPG that keeps English study sessions short, gamified, and data-backed. Navigate from the title screen into the town hub, pick a learning mode (Vocabulary Battle, Grammar Dungeon, Conversation Tavern, Spelling Challenge, Listening Cave), and visit supporting screens for equipment, AI analysis, history, status, and settings. Each session requests five prompts from Gemini (`gemini-2.5-flash`), plays them offline, updates your stats (EXP, HP, Combo, Streak, Gold), logs the run, and feeds the AI weakness report.
 
+<img width="735" height="412" alt="Screenshot 2025-12-19 at 14 20 38" src="https://github.com/user-attachments/assets/de6fb36a-638e-40b9-861f-9c986d102594" />
+
+<img width="732" height="530" alt="Screenshot 2025-12-19 at 14 21 00" src="https://github.com/user-attachments/assets/46c7c29f-5977-4b87-af8a-121504db34ed" />
+
+
 ## Installation & Dependencies
 
 1. **Go 1.21+ and SQLite** are required. Install the Go toolchain and ensure `sqlite3` is accessible if you plan to inspect the database directly.
